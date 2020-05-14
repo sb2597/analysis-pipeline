@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+      {{>ImportDependencies}}
+      <script>
+            var cropper = null;
+            $(window).on('load', function() {
+                  bindCropper();
+            });
+
+            function bindCropper(){
+                  if(cropper != null){
+                        cropper.destroy();
+                  }
+                  console.log(document.getElementById('image'));
+                  image = document.getElementById('image');
+                  console.log(image);
+                  cropper = new Cropper(image, {
+                        viewMode: 1,
+                        crop(event) {
+                              console.log('X:'+event.detail.x);
+                              console.log('Y:'+event.detail.y);
+                              console.log(''+event.detail.width);
+                              console.log(''+event.detail.height);
+                              console.log(''+event.detail.rotate);
+                              console.log(''+event.detail.scaleX);
+                              console.log(''+event.detail.scaleY);
+                              console.log(''+image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth);
+                              console.log(JSON.stringify(event.detail));
+                              //zoom % image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth
+                              console.log('DATA:'+cropper.getData());
+                        },
+                  });
+
+            }
+
+            // Function to download data to a file
+            function download(data, filename, type) {
+                  var file = new Blob([data], {type: type});
+                  if (window.navigator.msSaveOrOpenBlob) // IE10+
+                        window.navigator.msSaveOrOpenBlob(file, filename);
+                  else { // Others
+                        var a = document.createElement("a"),
+                        url = URL.createObjectURL(file);
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(function() {
+                              document.body.removeChild(a);
+                              window.URL.revokeObjectURL(url);  
+                        }, 0); 
+                  }
+            }
+
+            function loadSettings(settings){
+                  if(cropper){
+                        cropper.setData(settings);
+                  }
+
+            }
+
+            
+
+            function saveSettings(){
+                  if(cropper){
+                        data = cropper.getData(true);
+                        download(JSON.stringify(data), 'image-preprocessing-settings.iap', 'iap')
+                        return data;
+                  }
+
+            }
+
+
+</script>
+      </script>
+</head>
+<body>
+      {{>navbar}}
+      
+      <div class="row">
+            <div class="col-12">
+                  <h1>Configure Image Settings</h1>
+            </div>
+      </div>
+
+
+      <div class="row">
+            <div class="col-10" style="padding:0;">
+                  <img id="image" src="https://placekitten.com/800/600">
+            </div>
+            <div class="col-2">
+                  <div class="row">Image Settings</div>
+                  <div class="row">Upload Image</div>
+                  <div class="row">
+                  <input type="file" id="image-selector">
+                  <script>
+                  document.getElementById('image-selector').addEventListener('change', (event) => {
+                  let imageFiles = event.target.files;
+                  url = URL.createObjectURL(imageFiles[0]);
+                  $('#image').attr("src", url);
+                        bindCropper();
+                   });
+                  </script>
+                  </div>
+                  <div class="row">Save Configuration</div>
+                  <div class="row">
+                        <input type="button" id="save-configuration" value="Save Configuration" onclick="saveSettings();" />
+                  </div>
+                  <div class="row">Load Configuration</div>
+                  <div class="row">
+                        <input type="file" id="configuration-selector" style="display: none;">
+                        <input type="button" value="Load Configuration" onclick="document.getElementById('configuration-selector').click();" />
+                        <script> 
+		            document.getElementById('configuration-selector') 
+			            .addEventListener('change', function() { 
+			
+			            var fr=new FileReader(); 
+			            fr.onload=function(){ 
+                                    let settings = null;
+                                    try{
+                                          settings = JSON.parse(fr.result); 
+                                          loadSettings(settings);
+                                    } catch (err){
+                                          window.alert("Could not load configuration.")
+                                    }
+			            } 
+			
+			            fr.readAsText(this.files[0]); 
+		            }); 
+	
+                        </script>
+                  </div>
+
+
+            </div>
+      </div>
+      
+      
+
+
+</body>
