@@ -6,6 +6,7 @@
       {{>ImportDependencies}}
       <script>
             var cropper = null;
+            var image = null;
             $(window).on('load', function() {
                   bindCropper();
             });
@@ -18,19 +19,20 @@
                   image = document.getElementById('image');
                   console.log(image);
                   cropper = new Cropper(image, {
-                        viewMode: 1,
+                        viewMode: 0,
                         crop(event) {
-                              console.log('X:'+event.detail.x);
-                              console.log('Y:'+event.detail.y);
-                              console.log(''+event.detail.width);
-                              console.log(''+event.detail.height);
-                              console.log(''+event.detail.rotate);
-                              console.log(''+event.detail.scaleX);
-                              console.log(''+event.detail.scaleY);
-                              console.log(''+image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth);
-                              console.log(JSON.stringify(event.detail));
+                              $('#crop-box-x').val(Math.round(event.detail.x));
+                              $('#crop-box-y').val(Math.round(event.detail.y));
+                              $('#crop-box-width').val(Math.round(event.detail.width));
+                              $('#crop-box-height').val(Math.round(event.detail.height));
+                              $('#image-rotation').val(Math.round(event.detail.rotate));
+                              //console.log('scaleX:'+event.detail.scaleX);
+                              //console.log('scaleY:'+event.detail.scaleY);
+                              $('#zoom').val(Math.round((image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth)*100));
+                              //console.log('Zoom:'+(image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth)*100);
+                              //console.log(JSON.stringify(event.detail));
                               //zoom % image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth
-                              console.log('DATA:'+cropper.getData());
+                              //console.log('DATA:'+cropper.getData());
                         },
                   });
 
@@ -57,85 +59,262 @@
 
             function loadSettings(settings){
                   if(cropper){
-                        cropper.setData(settings);
+                        applySettings(settings);
                   }
 
             }
 
-            
-
             function saveSettings(){
                   if(cropper){
                         data = cropper.getData(true);
+                        data.rows = parseInt($('#rows').val, 10);
+                        data.columns = parseInt($('#columns').val, 10);
+                        data.rowbuffer = parseInt($('#row-buffer').val, 10);
+                        data.columnbuffer = parseInt($('#column-buffer').val, 10);
                         download(JSON.stringify(data), 'image-preprocessing-settings.iap', 'iap')
                         return data;
                   }
 
             }
 
+            function updateCanvas(){
+                  //first validate the settings
+                  if(
+                  !isNaN($('#crop-box-x').val()) &&
+                  !isNaN($('#crop-box-y').val()) &&
+                  !isNaN($('#crop-box-width').val()) &&
+                  !isNaN($('#crop-box-height').val()) &&
+                  !isNaN($('#image-rotation').val()) &&
+                  !isNaN($('#zoom').val())
+                  ){
+                        var settings = {
+                              "x":parseInt($('#crop-box-x').val(), 10),
+                              "y":parseInt($('#crop-box-y').val(), 10),
+                              "width":parseInt($('#crop-box-width').val(), 10),
+                              "height":parseInt($('#crop-box-height').val(), 10),
+                              "rotate":parseInt($('#image-rotation').val(), 10),
+                              "zoom":parseInt($('#zoom').val(), 10),
+                              "rows":parseInt($('#rows').val, 10),
+                              "columns":parseInt($('#columns').val, 10),
+                              "rowbuffer":parseInt($('#row-buffer').val, 10),
+                              "columnbuffer":parseInt($('#column-buffer').val, 10)
+                        }
+                  applySettings(settings);
+                  }
+            }
+
+            function applySettings(settings){
+                  if(settings.zoom){
+                        cropper.zoomTo(settings.zoom/100);
+                        delete settings.zoom;
+                  }
+                  if(settings.rotate){
+                        cropper.rotateTo(settings.rotate);
+                        delete settings.rotate;
+                  }
+                  
+                  //draw the boxes
+                  if(settings.rows&&settings.columns && !isNaN(settings.rowbuffer) && !isNaN(settings.columnbuffer){
+                        //do box draw
+                  } else {
+                        // revert to standard editor box
+                  }
+                  cropper.setData(settings);
+            }
+
+            function setInputFilterAndUpdates(textbox, inputFilter) {
+                  ["input", "keydown", "keyup", "mousedown", "mouseup", "select", "contextmenu", "drop"].forEach(function(event) {
+                        textbox.addEventListener(event, function() {
+                              if (inputFilter(this.value)) {
+                                    this.oldValue = this.value;
+                                    this.oldSelectionStart = this.selectionStart;
+                                    this.oldSelectionEnd = this.selectionEnd;
+                                    console.log('apply');
+                              } else if (this.hasOwnProperty("oldValue")) {
+                                    this.value = this.oldValue;
+                                    this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
+                                    console.log('revert');
+                              } else {
+                                    this.value = "";
+                              }
+                              updateCanvas();
+                        });
+                  });
+            }
 
 </script>
       </script>
 </head>
 <body>
       {{>navbar}}
-      
-      <div class="row">
-            <div class="col-12">
-                  <h1>Configure Image Settings</h1>
+      <div class="container">
+
+            <div class="row">
+                  <div class="col-12">
+                        <h1>Configure Image Settings</h1>
+                  </div>
             </div>
-      </div>
 
 
-      <div class="row">
-            <div class="col-10" style="padding:0;">
-                  <img id="image" src="https://placekitten.com/800/600">
-            </div>
-            <div class="col-2">
-                  <div class="row">Image Settings</div>
-                  <div class="row">Upload Image</div>
-                  <div class="row">
-                  <input type="file" id="image-selector">
-                  <script>
-                  document.getElementById('image-selector').addEventListener('change', (event) => {
-                  let imageFiles = event.target.files;
-                  url = URL.createObjectURL(imageFiles[0]);
-                  $('#image').attr("src", url);
-                        bindCropper();
-                   });
-                  </script>
+            <div class="row">
+                  <div class="col-10" style="padding:0;">
+                        <img id="image" src="https://placekitten.com/800/600">
                   </div>
-                  <div class="row">Save Configuration</div>
-                  <div class="row">
-                        <input type="button" id="save-configuration" value="Save Configuration" onclick="saveSettings();" />
-                  </div>
-                  <div class="row">Load Configuration</div>
-                  <div class="row">
-                        <input type="file" id="configuration-selector" style="display: none;">
-                        <input type="button" value="Load Configuration" onclick="document.getElementById('configuration-selector').click();" />
-                        <script> 
-		            document.getElementById('configuration-selector') 
-			            .addEventListener('change', function() { 
-			
-			            var fr=new FileReader(); 
-			            fr.onload=function(){ 
-                                    let settings = null;
-                                    try{
-                                          settings = JSON.parse(fr.result); 
-                                          loadSettings(settings);
-                                    } catch (err){
-                                          window.alert("Could not load configuration.")
-                                    }
-			            } 
-			
-			            fr.readAsText(this.files[0]); 
-		            }); 
-	
+                  <div class="col-2">
+                        <div class="row">Image Settings</div>
+                        <div class="row">Upload Image</div>
+                        <div class="row">
+                        <input type="file" id="image-selector">
+                        <script>
+                        document.getElementById('image-selector').addEventListener('change', (event) => {
+                        var imageFiles = event.target.files;
+                        url = URL.createObjectURL(imageFiles[0]);
+                        $('#image').attr("src", url);
+                              bindCropper();
+                        });
                         </script>
+                        </div>
+                        <div class="row">Save Configuration</div>
+                        <div class="row">
+                              <input type="button" id="save-configuration" value="Save Configuration" onclick="saveSettings();" />
+                        </div>
+                        <div class="row">Load Configuration</div>
+                        <div class="row">
+                              <input type="file" id="configuration-selector" style="display: none;">
+                              <input type="button" value="Load Configuration" onclick="document.getElementById('configuration-selector').click();" />
+                              <script> 
+                              document.getElementById('configuration-selector') 
+                                    .addEventListener('change', function() { 
+                        
+                                    var fr=new FileReader(); 
+                                    fr.onload=function(){ 
+                                          var settings = null;
+                                          try{
+                                                settings = JSON.parse(fr.result); 
+                                                loadSettings(settings);
+                                          } catch (err){
+                                                window.alert("Could not load configuration.")
+                                          }
+                                    } 
+                        
+                                    fr.readAsText(this.files[0]); 
+                              }); 
+            
+                              </script>
+                        </div>
+                        <div class="row">Image Values:</div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="input-box-x">X:</label>
+                              <input type="text" class="form-control col-6" id="crop-box-x">
+                              <script>
+                                    setInputFilterAndUpdates(document.getElementById("crop-box-x"), function(value) {
+                                    return /^\d*\.?\d*$/.test(value); // Allow digits and '.' only, using a RegExp
+                                    });
+                              </script>
+                              </div>
+                        </div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="input-box-y">Y:</label>
+                              <input type="text" class="form-control col-6" id="crop-box-y">
+                              <script>
+                                    setInputFilterAndUpdates(document.getElementById("crop-box-y"), function(value) {
+                                    return /^\d*\.?\d*$/.test(value); // Allow digits and '.' only, using a RegExp
+                                    });
+                              </script>
+                              </div>
+                        </div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="width">Width:</label>
+                              <input type="text" class="form-control col-6" id="crop-box-width">
+                              <script>
+                                    setInputFilterAndUpdates(document.getElementById("crop-box-width"), function(value) {
+                                    return /^\d*\.?\d*$/.test(value); // Allow digits and '.' only, using a RegExp
+                                    });
+                              </script>
+                              </div>
+                        </div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="height">Height:</label>
+                              <input type="text" class="form-control col-6" id="crop-box-height">
+                              <script>
+                                    setInputFilterAndUpdates(document.getElementById("crop-box-height"), function(value) {
+                                    return /^\d*\.?\d*$/.test(value); // Allow digits and '.' only, using a RegExp
+                                    });
+                              </script>
+                              </div>
+                        </div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="image-rotation">Rotation:</label>
+                              <input type="text" class="form-control col-6" id="image-rotation">
+                              <script>
+                                    setInputFilterAndUpdates(document.getElementById("image-rotation"), function(value) {
+                                    return /^\d*\.?\d*$/.test(value); // Allow digits and '.' only, using a RegExp
+                                    });
+                              </script>
+                              </div>
+                        </div>
+                        
+                              <div class="row" style="margin-bottom: 16px;">
+                                    <div class ="col-6">
+                                          <button type="button" class="btn btn-light" style="width: inherit;" onclick="cropper.rotate(10);">
+                                                clockwise
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 16" width="14" height="16" transform="scale(-1,1)"><path fill-rule="evenodd" d="M6 3.5c3.92.44 8 3.125 8 10-2.312-5.062-4.75-6-8-6V11L.5 5.5 6 0v3.5z"></path></svg>
+                                          </button>
+                                    </div>
+                                    <div class ="col-6">
+                                          <button type="button" class="btn btn-light" style="width: inherit;" onclick="cropper.rotate(-10);">
+                                                counter clockwise
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 16" width="14" height="16"><path fill-rule="evenodd" d="M6 3.5c3.92.44 8 3.125 8 10-2.312-5.062-4.75-6-8-6V11L.5 5.5 6 0v3.5z"></path></svg>
+                                                
+                                          </button>
+                                    </div>
+                              </div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="zoom">Zoom:</label>
+                              <input type="text" class="form-control col-6" id="zoom">
+                              <script>
+                              setInputFilterAndUpdates(document.getElementById("zoom"), function(value) {
+                                    return /^\d*\.?\d*$/.test(value); // Allow digits and '.' only, using a RegExp
+                              });
+                              </script>
+                              </div>
+                        </div>
+
+
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="rows">Rows:</label>
+                              <input type="text" class="form-control col-6" id="rows">
+                              <script>
+                              setInputFilterAndUpdates(document.getElementById("rows"), function(value) {
+                                    return /^\d+$/.test(value); // Allow positive whole numbers using a RegExp
+                              });
+                              </script>
+                              </div>
+                        </div>
+ 
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="columns">Columns:</label>
+                              <input type="text" class="form-control col-6" id="columns">
+                              <script>
+                              setInputFilterAndUpdates(document.getElementById("columns"), function(value) {
+                                    return /^\d+$/.test(value); // Allow positive whole numbers using a RegExp
+                              });
+                              </script>
+                              </div>
+                        </div>
+
+
                   </div>
-
-
             </div>
+
       </div>
       
       
