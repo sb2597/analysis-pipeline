@@ -56,6 +56,11 @@
                         }, 0); 
                   }
             }
+            function saveImage(){
+                  cropper.getCroppedCanvas().toBlob((blob) => {
+                        download(blob, 'croppedImage.jpg', 'jpg');
+                  });      
+            }
 
             function loadSettings(settings){
                   if(cropper){
@@ -67,10 +72,12 @@
             function saveSettings(){
                   if(cropper){
                         data = cropper.getData(true);
-                        data.rows = parseInt($('#rows').val, 10);
-                        data.columns = parseInt($('#columns').val, 10);
-                        data.rowbuffer = parseInt($('#row-buffer').val, 10);
-                        data.columnbuffer = parseInt($('#column-buffer').val, 10);
+                        data.zoom = parseInt($('#zoom').val(), 10);
+                        data.rows = parseInt($('#rows').val(), 10);
+                        data.columns = parseInt($('#columns').val(), 10);
+                        data.rowbuffer = parseInt($('#row-buffer').val(), 10);
+                        data.columnbuffer = parseInt($('#column-buffer').val(), 10);
+
                         download(JSON.stringify(data), 'image-preprocessing-settings.iap', 'iap')
                         return data;
                   }
@@ -94,16 +101,16 @@
                               "height":parseInt($('#crop-box-height').val(), 10),
                               "rotate":parseInt($('#image-rotation').val(), 10),
                               "zoom":parseInt($('#zoom').val(), 10),
-                              "rows":parseInt($('#rows').val, 10),
-                              "columns":parseInt($('#columns').val, 10),
-                              "rowbuffer":parseInt($('#row-buffer').val, 10),
-                              "columnbuffer":parseInt($('#column-buffer').val, 10)
+                              "rows":parseInt($('#rows').val(), 10),
+                              "columns":parseInt($('#columns').val(), 10),
+                              "rowbuffer":parseInt($('#row-buffer').val(), 10),
+                              "columnbuffer":parseInt($('#column-buffer').val(), 10)
                         }
                   applySettings(settings);
                   }
             }
 
-            function applySettings(settings){
+            function applySettings(settings, canvasData){
                   if(settings.zoom){
                         cropper.zoomTo(settings.zoom/100);
                         delete settings.zoom;
@@ -112,14 +119,43 @@
                         cropper.rotateTo(settings.rotate);
                         delete settings.rotate;
                   }
-                  
                   //draw the boxes
-                  if(settings.rows&&settings.columns && !isNaN(settings.rowbuffer) && !isNaN(settings.columnbuffer){
-                        //do box draw
+                  if(settings.rows&&settings.columns && settings.rowbuffer && settings.columnbuffer){
+                        //hide the dotted lines
+                        $(".cropper-dashed").each(function( element ) {
+                              $(this).hide();
+                        });
+                        $(".field-lines").each(function( element ) {
+                              $(this).remove();
+                        });
+                        $(".cropper-face").each(function( element ) {
+                              $(this).css("z-index", "2");
+                        });
+                        //draw horizontal lines
+                        for (var i = 0 ; i < (parseInt(settings.rows, 10)); i++){
+                              $(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-bottom-width: '+ parseInt(settings.rowbuffer, 10) +'px; border-top-width: '+ parseInt(settings.rowbuffer, 10) +'px; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*i +'% / '+ parseInt(settings.rows, 10) +');display: block;opacity: 0.5;position: absolute; width:100%;z-index: 1;"></span>');
+                        }
+                        //draw vertical lines
+                        for (var i = 0 ; i < parseInt(settings.columns, 10); i++){
+                              $(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-left-width: '+ parseInt(settings.columnbuffer, 10) +'px; border-right-width: '+ parseInt(settings.columnbuffer, 10) +'px; width: calc( 100% / '+ parseInt(settings.columns, 10) +'); left: calc('+100*i +'% / '+ parseInt(settings.columns, 10) +');display: block;opacity: 0.5;position: absolute; height:100%;z-index: 1;"></span>');
+                        }
+                                  
                   } else {
-                        // revert to standard editor box
+                        //show the dotted lines
+                        $(".cropper-dashed").each(function( element ) {
+                              $(this).show();
+                        });
+                        //remove the bufferlines
+                        $(".field-lines").each(function( element ) {
+                              $(this).remove();
+                        });
                   }
                   cropper.setData(settings);
+
+                  if(canvasData){
+                        cropper.setCanvasData(canvasData);
+                  }
+
             }
 
             function setInputFilterAndUpdates(textbox, inputFilter) {
@@ -140,6 +176,14 @@
                               updateCanvas();
                         });
                   });
+            }
+
+            function slice(){
+                  //create an invisible (inside a display:none container) image out of the cropped image
+                  //for every cell calculate a cropper window reflecting that cell and compensating for the buffer we've added.
+                  //do something cool with those sliced images
+
+                  
             }
 
 </script>
@@ -290,7 +334,7 @@
                         <div class="form-group">
                               <div class="form-row">
                               <label class="col-6" for="rows">Rows:</label>
-                              <input type="text" class="form-control col-6" id="rows">
+                              <input type="text" class="form-control col-6" id="rows" value="0">
                               <script>
                               setInputFilterAndUpdates(document.getElementById("rows"), function(value) {
                                     return /^\d+$/.test(value); // Allow positive whole numbers using a RegExp
@@ -302,7 +346,7 @@
                         <div class="form-group">
                               <div class="form-row">
                               <label class="col-6" for="columns">Columns:</label>
-                              <input type="text" class="form-control col-6" id="columns">
+                              <input type="text" class="form-control col-6" id="columns" value="0">
                               <script>
                               setInputFilterAndUpdates(document.getElementById("columns"), function(value) {
                                     return /^\d+$/.test(value); // Allow positive whole numbers using a RegExp
@@ -311,7 +355,29 @@
                               </div>
                         </div>
 
-
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="row-buffer">Row Buffer:</label>
+                              <input type="text" class="form-control col-6" id="row-buffer" value="0">
+                              <script>
+                              setInputFilterAndUpdates(document.getElementById("row-buffer"), function(value) {
+                                    return /^\d+$/.test(value); // Allow positive whole numbers using a RegExp
+                              });
+                              </script>
+                              </div>
+                        </div>
+ 
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="column-buffer">Column Buffer:</label>
+                              <input type="text" class="form-control col-6" id="column-buffer" value="0">
+                              <script>
+                              setInputFilterAndUpdates(document.getElementById("column-buffer"), function(value) {
+                                    return /^\d+$/.test(value); // Allow positive whole numbers using a RegExp
+                              });
+                              </script>
+                              </div>
+                        </div>
                   </div>
             </div>
 
