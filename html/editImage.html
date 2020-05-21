@@ -178,13 +178,61 @@
                   });
             }
 
-            function slice(){
-                  //create an invisible (inside a display:none container) image out of the cropped image
-                  //for every cell calculate a cropper window reflecting that cell and compensating for the buffer we've added.
-                  //do something cool with those sliced images
+            async function slice(){
 
+
+                  blob = await new Promise(resolve => cropper.getCroppedCanvas().toBlob(resolve));
+
+
+                  //blob = await cropper.getCroppedCanvas().toBlob((blob) => {
+                        
+                   
+                  //create an invisible (inside a display:none container) image out of the cropped image
+                  var tempFile = new File([blob],"croppedimage");
+                  tempUrl = URL.createObjectURL(tempFile);
+                  $('#slicing-workspace').append('<img id="croppedImage" src="'+tempUrl+'">');
+
+                  tempImage = document.getElementById('croppedImage');
+                  console.log(tempImage);
+                  var tempCropper = new Cropper(tempImage, {
+                        viewMode: 0
+                  });
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  //for every cell calculate a cropper window reflecting that cell and compensating for the buffer we've added.
                   
+                  for (var x = 0; x < parseInt($('#columns').val(), 10); x++){
+                        for (var y = 0; y < parseInt($('#rows').val(), 10); y++){
+                              
+                              tempCanvasData = tempCropper.getCanvasData();
+
+                              settings = {
+                                    "x":(x*tempCanvasData.width/parseInt($('#columns').val(), 10))+parseInt($('#column-buffer').val(),10),
+                                    "y":(y*tempCanvasData.height/parseInt($('#rows').val(), 10))+parseInt($('#row-buffer').val(),10),
+                                    "width":(tempCanvasData.width/parseInt($('#columns').val(), 10))-(2*$('#column-buffer').val(),10),
+                                    "height":(tempCanvasData.height/parseInt($('#rows').val(), 10))-(2*$('#row-buffer').val(),10)
+                              }
+                              tempCropper.setData(settings);
+                              await new Promise(resolve => setTimeout(resolve, 200));
+                              //tempCropper
+                              tempBlob = await new Promise(resolve => tempCropper.getCroppedCanvas().toBlob(resolve));
+                              //tempBlob = await tempCropper.getCroppedCanvas().toBlob(tempBlob) => {
+                                    var tempFile = new File([tempBlob],"croppedimage");
+                                    tempUrl = URL.createObjectURL(tempFile);
+                                    $('#results-workspace').append('<img id="plot-image" src="'+tempUrl+'">');
+                              //});
+
+                              //do something cool with those sliced images
+                              //$('#slicing-workspace').append('<img id="croppedImage" src="'+tempUrl+'">');
+                        }
+
+                  }
+
+                  //window.URL.revokeObjectURL(tempUrl); 
+
+                  //});
             }
+
+            
 
 </script>
       </script>
@@ -382,7 +430,12 @@
             </div>
 
       </div>
-      
+      <div id="slicing-workspace" class="container" style="display: none;">
+
+      </div>
+      <div id="results-workspace" class="container" style="display: none;">
+
+      </div>
       
 
 
