@@ -119,7 +119,7 @@
                         cropper.rotateTo(settings.rotate);
                         delete settings.rotate;
                   }
-                  //draw the boxes
+                  //draw the boxes and numbers
                   if(settings.rows&&settings.columns && settings.rowbuffer && settings.columnbuffer){
                         //hide the dotted lines
                         $(".cropper-dashed").each(function( element ) {
@@ -131,6 +131,9 @@
                         $(".cropper-face").each(function( element ) {
                               $(this).css("z-index", "2");
                         });
+                        $(".plot-numbering").each(function( element ) {
+                              $(this).remove();
+                        });
                         //draw horizontal lines
                         for (var i = 0 ; i < (parseInt(settings.rows, 10)); i++){
                               $(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-bottom-width: '+ parseInt(settings.rowbuffer, 10) +'px; border-top-width: '+ parseInt(settings.rowbuffer, 10) +'px; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*i +'% / '+ parseInt(settings.rows, 10) +');display: block;opacity: 0.5;position: absolute; width:100%;z-index: 1;"></span>');
@@ -139,7 +142,33 @@
                         for (var i = 0 ; i < parseInt(settings.columns, 10); i++){
                               $(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-left-width: '+ parseInt(settings.columnbuffer, 10) +'px; border-right-width: '+ parseInt(settings.columnbuffer, 10) +'px; width: calc( 100% / '+ parseInt(settings.columns, 10) +'); left: calc('+100*i +'% / '+ parseInt(settings.columns, 10) +');display: block;opacity: 0.5;position: absolute; height:100%;z-index: 1;"></span>');
                         }
-                                  
+
+                        //draw numbering
+                        for (var i = 0 ; i < (parseInt(settings.columns, 10)); i++){
+                              for (var j = 0 ; j < (parseInt(settings.rows, 10)); j++){
+                                    var plotNumbering = 0;
+                                    var numberingScheme = parseInt($( "#selectNumbering" ).val(), 10);
+                                    if( numberingScheme == 1){
+                                          plotNumbering = ((j*parseInt(settings.columns, 10))+i+1);
+                                    }else if(numberingScheme == 2){
+                                          plotNumbering = ((j*parseInt(settings.columns, 10))+parseInt(settings.columns, 10)-i);
+                                    }else if(numberingScheme == 3){
+                                          if(j%2  == 0){
+                                                plotNumbering = ((j*parseInt(settings.columns, 10))+i+1);
+                                          }else{
+                                                plotNumbering = ((j*parseInt(settings.columns, 10))+parseInt(settings.columns, 10)-i);
+                                          }
+                                    }else if(numberingScheme == 4){
+                                          if(j%2  != 0){
+                                                plotNumbering = ((j*parseInt(settings.columns, 10))+i+1);
+                                          }else{
+                                                plotNumbering = ((j*parseInt(settings.columns, 10))+parseInt(settings.columns, 10)-i);
+                                          }
+                                    }
+                                    $(".cropper-crop-box").append('<span class="plot-numbering" style="color: #0e0; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*j +'% / '+ parseInt(settings.rows, 10) +'); width: calc( 100% / '+ parseInt(settings.columns, 10) +'); left: calc('+100*i +'% / '+ parseInt(settings.columns, 10) +'); display: block;opacity: 0.5;position: absolute; z-index: 1; line-height: calc( 100% / '+ parseInt(settings.rows, 10) +'); text-align: center;font-size: 16px;"><div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">'+plotNumbering+'</div></span>');
+                                    
+                              }
+                        }
                   } else {
                         //show the dotted lines
                         $(".cropper-dashed").each(function( element ) {
@@ -149,7 +178,12 @@
                         $(".field-lines").each(function( element ) {
                               $(this).remove();
                         });
+                        //remove numbering
+                        $(".plot-numbering").each(function( element ) {
+                              $(this).remove();
+                        });
                   }
+                  showHideFieldOverlay();
                   cropper.setData(settings);
 
                   if(canvasData){
@@ -204,15 +238,18 @@
                         for (var y = 0; y < parseInt($('#rows').val(), 10); y++){
                               
                               tempCanvasData = tempCropper.getCanvasData();
-
+                              //buffer/window = x/canvas
                               settings = {
-                                    "x":(x*tempCanvasData.width/parseInt($('#columns').val(), 10))+parseInt($('#column-buffer').val(),10),
-                                    "y":(y*tempCanvasData.height/parseInt($('#rows').val(), 10))+parseInt($('#row-buffer').val(),10),
-                                    "width":(tempCanvasData.width/parseInt($('#columns').val(), 10))-(2*$('#column-buffer').val(),10),
-                                    "height":(tempCanvasData.height/parseInt($('#rows').val(), 10))-(2*$('#row-buffer').val(),10)
+                                    "x":Math.round((x*tempCanvasData.width/parseInt($('#columns').val(), 10))+(parseInt($('#column-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
+                                    "y":Math.round((y*tempCanvasData.height/parseInt($('#rows').val(), 10))+(parseInt($('#row-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
+                                    "width":Math.round((tempCanvasData.width/parseInt($('#columns').val(), 10))-2*(parseInt($('#column-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
+                                    "height":Math.round((tempCanvasData.height/parseInt($('#rows').val(), 10))-2*(parseInt($('#row-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width)))
                               }
+                              console.log(JSON.stringify(settings));
                               tempCropper.setData(settings);
+                              
                               await new Promise(resolve => setTimeout(resolve, 200));
+                              
                               //tempCropper
                               tempBlob = await new Promise(resolve => tempCropper.getCroppedCanvas().toBlob(resolve));
                               //tempBlob = await tempCropper.getCroppedCanvas().toBlob(tempBlob) => {
@@ -230,6 +267,32 @@
                   //window.URL.revokeObjectURL(tempUrl); 
 
                   //});
+            }
+
+            function showHideFieldOverlay(){
+                  if($('#showFieldLines').prop('checked')){
+                        $(".field-lines").each(function( element ) {
+                              $(this).show();
+                        });
+                  }else{
+                        $(".field-lines").each(function( element ) {
+                              $(this).hide();
+                        });
+                  }
+
+                  if($('#showNumbering').prop('checked')){
+                        $(".plot-numbering").each(function( element ) {
+                              $(this).show();
+                        });
+                  }else{
+                        $(".plot-numbering").each(function( element ) {
+                              $(this).hide();
+                        });
+                  }
+            }
+
+            function startProcess(){
+
             }
 
             
@@ -426,9 +489,90 @@
                               </script>
                               </div>
                         </div>
+
+                        <div class="form-check">
+                              <input class="form-check-input" type="checkbox" value="" id="showFieldLines">
+                              <label class="form-check-label" for="showFieldLines">
+                                Show Field Lines
+                              </label>
+                              <script>
+                                    $('#showFieldLines').change(function() {
+                                          updateCanvas();
+                                    })
+                              </script>
+                        </div>
+
+                        <div class="row">
+                              <div class="form-group col-12">
+                                    <label for="selectNumbering">Numbering style</label>
+                                    <select class="form-control" id="selectNumbering">
+                                      <option value="1">Horizontal Zigzag Left to Right</option>
+                                      <option value="2">Horizontal Zigzag Right to Left</option>
+                                      <option value="3">Horizontal Serpentine Starting Left to Right</option>
+                                      <option value="4">Horizontal Serpentine Starting Right to Left</option>
+                                    </select>
+                              </div>
+                              <script>
+                                    $('#selectNumbering').change(function() {
+                                          updateCanvas();
+                                    })
+                              </script>
+                        </div>
+
+                        <div class="form-check">
+                              <input class="form-check-input" type="checkbox" value="" id="showNumbering">
+                              <label class="form-check-label" for="showNumbering">
+                                Show Numbering
+                              </label>
+                              <script>
+                                    $('#showNumbering').change(function() {
+                                          showHideFieldOverlay();
+                                    })
+                              </script>
+                        </div>
+                        <div class="row" style="margin-bottom: 16px;">
+                              <div class ="col-12">
+                                    <button type="button" class="btn btn-light" style="width: inherit;" data-toggle="modal" data-target="#processModal">
+                                          Process Images Using These Settings
+                                    </button>
+                              </div>
+                        </div>
                   </div>
             </div>
 
+      </div>
+      <div class="modal fade" id="processModal" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false" aria-labelledby="processModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl" role="document">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="processModalLabel">Process Images</h5>
+                </div>
+                <div class="modal-body" id="modal-body">
+                  <label for="select-image-set">Select Images:</label>
+                  <input type="file" id="select-image-set" name="files" multiple>
+                  <script>
+                        document.getElementById('select-image-set').addEventListener('change', (event) => {
+                        var processURLs = event.target.files;
+                        for(var i = 0; i < processURLs.length; i++){
+                              url = URL.createObjectURL(processURLs[i]);
+                              var imageInfo = 
+                              '<img id="image-'+i+'" src="'+url+'">'+
+                              '<div class="form-row">'+
+                                    '<label class="col-6" for="image-'+i+'-name">Image Name</label>'+
+                                    '<input type="text" class="form-control col-6" id="image-'+i+'-name">'+
+                              '</div>';
+
+                              $("#modal-body").append(imageInfo);
+                        }
+                        });
+                  </script>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel Process</button>
+                  <button type="button" class="btn btn-primary">Continue</button>
+                </div>
+              </div>
+            </div>
       </div>
       <div id="slicing-workspace" class="container" style="display: none;">
 
