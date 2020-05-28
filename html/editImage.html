@@ -70,6 +70,12 @@
             }
 
             function saveSettings(){
+                  data = getSettings();
+                  download(JSON.stringify(data), 'image-preprocessing-settings.iap', 'iap')
+                  return data;
+
+            }
+            function getSettings(){
                   if(cropper){
                         data = cropper.getData(true);
                         data.zoom = parseInt($('#zoom').val(), 10);
@@ -77,11 +83,8 @@
                         data.columns = parseInt($('#columns').val(), 10);
                         data.rowbuffer = parseInt($('#row-buffer').val(), 10);
                         data.columnbuffer = parseInt($('#column-buffer').val(), 10);
-
-                        download(JSON.stringify(data), 'image-preprocessing-settings.iap', 'iap')
                         return data;
                   }
-
             }
 
             function updateCanvas(){
@@ -260,6 +263,117 @@
 
                               //do something cool with those sliced images
                               //$('#slicing-workspace').append('<img id="croppedImage" src="'+tempUrl+'">');
+                        }
+
+                  }
+
+                  //window.URL.revokeObjectURL(tempUrl); 
+
+                  //});
+            }
+
+            async function sliceImageSet(imageElements, imageContainer, resultsContainer){
+                  var tempCropper;
+
+                  var imageUrls = [];
+
+                  $('#image-selection-area').hide();
+                  $('#image-staging-area').hide();
+
+                  var cropperSettings = getSettings();
+
+                  for(var i = 0; i < imageElements.length; i++){
+                        imageUrls[i] = imageElements[i].src;
+                  }
+
+                  for (var i = 0 ; i < imageUrls.length; i ++){
+                        if(tempCropper != null){
+                              tempCropper.destroy();
+                              $('#croppedImage').remove();
+                        }
+
+                        $('#image').attr("src", imageUrls[i]);
+                        bindCropper();
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        applySettings(cropperSettings);
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                                                
+                        blob = await new Promise(resolve => cropper.getCroppedCanvas().toBlob(resolve));
+                        
+                        //create an invisible (inside a display:none container) image out of the cropped image
+                        var tempFile = new File([blob],"croppedimage");
+                        tempUrl = URL.createObjectURL(tempFile);
+                        imageContainer.append('<img id="croppedImage" src="'+tempUrl+'">');
+
+                        tempImage = document.getElementById('croppedImage');
+                        console.log(tempImage);
+                        var tempCropper = new Cropper(tempImage, {
+                              viewMode: 0,
+                              zoomOnWheel: false
+                        });
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        //for every cell calculate a cropper window reflecting that cell and compensating for the buffer we've added.
+
+                        for (var y = 0; y < parseInt($('#rows').val(), 10); y++){
+                              for (var x = 0; x < parseInt($('#columns').val(), 10); x++){
+                                    
+                                    tempCanvasData = tempCropper.getCanvasData();
+                                    //buffer/window = x/canvas
+                                    //calculate X
+                                    var numberingScheme = parseInt($( "#selectNumbering" ).val(), 10);
+                                    if( numberingScheme == 1){
+                                          xOffset = (x*tempCanvasData.width/parseInt($('#columns').val(), 10));
+                                    }else if(numberingScheme == 2){
+                                          xOffset = ((parseInt($('#columns').val(), 10)-x-1)*tempCanvasData.width/parseInt($('#columns').val(), 10));
+                                    }else if(numberingScheme == 3){
+                                          if(y%2  == 0){
+                                                xOffset = (x*tempCanvasData.width/parseInt($('#columns').val(), 10));
+                                          }else{
+                                                xOffset = ((parseInt($('#columns').val(), 10)-x-1)*tempCanvasData.width/parseInt($('#columns').val(), 10));
+                                          }
+                                    }else if(numberingScheme == 4){
+                                          if(y%2  != 0){
+                                                xOffset = (x*tempCanvasData.width/parseInt($('#columns').val(), 10));
+                                          }else{
+                                                xOffset = ((parseInt($('#columns').val(), 10)-x-1)*tempCanvasData.width/parseInt($('#columns').val(), 10));
+                                          }
+                                    }
+                                    settings = {
+                                          "x":Math.round(xOffset+(parseInt($('#column-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
+                                          "y":Math.round((y*tempCanvasData.height/parseInt($('#rows').val(), 10))+(parseInt($('#row-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
+                                          "width":Math.round((tempCanvasData.width/parseInt($('#columns').val(), 10))-2*(parseInt($('#column-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
+                                          "height":Math.round((tempCanvasData.height/parseInt($('#rows').val(), 10))-2*(parseInt($('#row-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width)))
+                                    }
+                                    console.log(JSON.stringify(settings));
+                                    tempCropper.setData(settings);
+                                    
+                                    await new Promise(resolve => setTimeout(resolve, 200));
+                                    
+                                    //tempCropper
+                                    tempBlob = await new Promise(resolve => tempCropper.getCroppedCanvas().toBlob(resolve));
+                                    var tempFile = new File([tempBlob],"croppedimage");
+                                    tempUrl = URL.createObjectURL(tempFile);
+
+                                    //do something cool with those sliced images
+                                    
+                                    
+                                    var imageLine = 
+                                    '<div class="row" style="margin-bottom:1px;">'+
+                                          '<div class="col-2">'+
+                                                '<img id="plot-image" src="'+tempUrl+'" style="max-width:100%">'+
+                                          '</div>'+
+                                          '<div class="col-10">'+
+                                                $('#image-'+i+'-name').val() +'-'+ ((y*parseInt($('#columns').val(), 10))+x+1) +
+                                          '</div>'+
+                                    '</div>';  
+
+                                    resultsContainer.append(imageLine);
+                              }
+
+                        }
+                        if(tempCropper != null){
+                              tempCropper.destroy();
+                              $('#croppedImage').remove();
                         }
 
                   }
@@ -548,28 +662,47 @@
                   <h5 class="modal-title" id="processModalLabel">Process Images</h5>
                 </div>
                 <div class="modal-body" id="modal-body">
-                  <label for="select-image-set">Select Images:</label>
-                  <input type="file" id="select-image-set" name="files" multiple>
-                  <script>
-                        document.getElementById('select-image-set').addEventListener('change', (event) => {
-                        var processURLs = event.target.files;
-                        for(var i = 0; i < processURLs.length; i++){
-                              url = URL.createObjectURL(processURLs[i]);
-                              var imageInfo = 
-                              '<img id="image-'+i+'" src="'+url+'">'+
-                              '<div class="form-row">'+
-                                    '<label class="col-6" for="image-'+i+'-name">Image Name</label>'+
-                                    '<input type="text" class="form-control col-6" id="image-'+i+'-name">'+
-                              '</div>';
+                  <div id="image-selection-area">   
+                        <label for="select-image-set">Select Images:</label>
+                        <input type="file" id="select-image-set" name="files" multiple>
+                        <script>
+                              document.getElementById('select-image-set').addEventListener('change', (event) => {
+                              $("#image-staging-area").html('');
+                              var processURLs = event.target.files;
+                              for(var i = 0; i < processURLs.length; i++){
+                                    url = URL.createObjectURL(processURLs[i]);
+                                    var imageInfo = 
+                                    '<div class="row">'+
+                                          '<div class="col-3">'+
+                                                '<img id="uploaded-image-'+i+'" class="uploaded-image" src="'+url+'" style="max-width:100%">'+
+                                          '</div>'+
+                                          '<div class="col-9">'+
+                                                '<div class="form-row">'+
+                                                      '<label class="col-6" for="image-'+i+'-name">Image Name</label>'+
+                                                      '<input type="text" class="form-control col-6" id="image-'+i+'-name">'+
+                                                '</div>'+
+                                          '</div>'+
+                                    '</div>';      
+                                    
 
-                              $("#modal-body").append(imageInfo);
-                        }
-                        });
-                  </script>
+                                    $("#image-staging-area").append(imageInfo);
+                              }
+                              });
+                        </script>
+                  </div>
+                  <div id="image-staging-area">
+
+                  </div>
+                  <div id="image-parsing-area">
+
+                  </div>
+                  <div id="image-confirmation-area">
+
+                  </div>
                 </div>
                 <div class="modal-footer">
                   <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel Process</button>
-                  <button type="button" class="btn btn-primary">Continue</button>
+                  <button type="button" class="btn btn-primary" onclick="sliceImageSet($('.uploaded-image'), $('#image-parsing-area'), $('#image-confirmation-area'));">Continue</button>
                 </div>
               </div>
             </div>
