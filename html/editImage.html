@@ -137,6 +137,8 @@
                         $(".plot-numbering").each(function( element ) {
                               $(this).remove();
                         });
+
+                        //canvas width * zoom
                         //draw horizontal lines
                         for (var i = 0 ; i < (parseInt(settings.rows, 10)); i++){
                               $(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-bottom-width: '+ parseInt(settings.rowbuffer, 10) +'px; border-top-width: '+ parseInt(settings.rowbuffer, 10) +'px; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*i +'% / '+ parseInt(settings.rows, 10) +');display: block;opacity: 0.5;position: absolute; width:100%;z-index: 1;"></span>');
@@ -586,7 +588,7 @@
                               <input type="text" class="form-control col-6" id="row-buffer" value="0">
                               <script>
                               setInputFilterAndUpdates(document.getElementById("row-buffer"), function(value) {
-                                    return /^\d+$/.test(value); // Allow positive whole numbers using a RegExp
+                                    return /^\d*\.?\d*$/.test(value); // Allow positive whole numbers using a RegExp
                               });
                               </script>
                               </div>
@@ -598,7 +600,7 @@
                               <input type="text" class="form-control col-6" id="column-buffer" value="0">
                               <script>
                               setInputFilterAndUpdates(document.getElementById("column-buffer"), function(value) {
-                                    return /^\d+$/.test(value); // Allow positive whole numbers using a RegExp
+                                    return /^\d*\.?\d*$/.test(value); // Allow positive whole numbers using a RegExp
                               });
                               </script>
                               </div>
