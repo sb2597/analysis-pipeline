@@ -11,6 +11,7 @@
                   bindCropper();
             });
 
+            var lastzoom=null;
             function bindCropper(){
                   if(cropper != null){
                         cropper.destroy();
@@ -28,11 +29,14 @@
                               $('#image-rotation').val(Math.round(event.detail.rotate));
                               //console.log('scaleX:'+event.detail.scaleX);
                               //console.log('scaleY:'+event.detail.scaleY);
-                              $('#zoom').val(Math.round((image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth)*100));
+                              zoom = $('#zoom').val(Math.round((image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth)*100));
+                              if(zoom != lastzoom) redrawBuffersAndNumbering(getSettings(false));
+                              lastzoom = zoom;
                               //console.log('Zoom:'+(image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth)*100);
                               //console.log(JSON.stringify(event.detail));
                               //zoom % image.cropper.canvasData.width / image.cropper.canvasData.naturalWidth
                               //console.log('DATA:'+cropper.getData());
+                              
                         },
                   });
 
@@ -63,6 +67,30 @@
             }
 
             function loadSettings(settings){
+                  if(settings.rowbuffer){
+                        $("#row-buffer").val(settings.rowbuffer);
+                  }
+                  if(settings.columnbuffer){
+                        $("#column-buffer").val(settings.columnbuffer);
+                  }
+                  if(settings.rowstep){
+                        $("#row-step").val(settings.rowstep);
+                  }
+                  if(settings.colummnstep){
+                        $("#column-step").val(settings.columnstep);
+                  }
+                  if(settings.topfieldbuffer){
+                        $("top-field-buffer").val(settings.topfieldbuffer);
+                  }
+                  if(settings.bottomfieldbuffer){
+                        $("bottom-field-buffer").val(settings.bottomfieldbuffer);
+                  }
+                  if(settings.leftfieldbuffer){
+                        $("left-field-buffer").val(settings.leftfieldbuffer);
+                  }
+                  if(settings.rightfieldbuffer){
+                        $("right-field-buffer").val(settings.rightfieldbuffer);
+                  }
                   if(cropper){
                         applySettings(settings);
                   }
@@ -70,19 +98,32 @@
             }
 
             function saveSettings(){
-                  data = getSettings();
+                  data = getSettings(false);
                   download(JSON.stringify(data), 'image-preprocessing-settings.iap', 'iap')
                   return data;
 
             }
-            function getSettings(){
+            function getSettings(trimmed){
+                  if (trimmed==null){
+                        trimmed = true;
+                  }
                   if(cropper){
-                        data = cropper.getData(true);
-                        data.zoom = parseInt($('#zoom').val(), 10);
+                        data = cropper.getData(trimmed);
+                        data.zoom = parseFloat($('#zoom').val(), 10);
                         data.rows = parseInt($('#rows').val(), 10);
                         data.columns = parseInt($('#columns').val(), 10);
-                        data.rowbuffer = parseInt($('#row-buffer').val(), 10);
-                        data.columnbuffer = parseInt($('#column-buffer').val(), 10);
+                        //percentages
+                        data.rowbuffer = parseFloat($('#row-buffer').val(), 10);
+                        data.columnbuffer = parseFloat($('#column-buffer').val(), 10);
+                        data.rowstep = parseFloat($('#row-step').val(), 10);
+                        data.columnstep = parseFloat($('#column-step').val(), 10);
+                        data.topfieldbuffer = parseFloat($('#top-field-buffer').val(), 10);
+                        data.bottomfieldbuffer = parseFloat($('#bottom-field-buffer').val(), 10);
+                        data.leftfieldbuffer = parseFloat($('#left-field-buffer').val(), 10);
+                        data.rightfieldbuffer = parseFloat($('#right-field-buffer').val(), 10);
+                        //pixels
+                        //data.rowbuffer = parseInt($('#row-buffer').val(), 10);
+                        //data.columnbuffer = parseInt($('#column-buffer').val(), 10);
                         return data;
                   }
             }
@@ -97,7 +138,8 @@
                   !isNaN($('#image-rotation').val()) &&
                   !isNaN($('#zoom').val())
                   ){
-                        var settings = {
+                        var settings = getSettings();
+                        /*var settings = {
                               "x":parseInt($('#crop-box-x').val(), 10),
                               "y":parseInt($('#crop-box-y').val(), 10),
                               "width":parseInt($('#crop-box-width').val(), 10),
@@ -106,9 +148,14 @@
                               "zoom":parseInt($('#zoom').val(), 10),
                               "rows":parseInt($('#rows').val(), 10),
                               "columns":parseInt($('#columns').val(), 10),
-                              "rowbuffer":parseInt($('#row-buffer').val(), 10),
-                              "columnbuffer":parseInt($('#column-buffer').val(), 10)
-                        }
+                              "rowbuffer":parseFloat($('#row-buffer').val(), 10),
+                              "columnbuffer":parseFloat($('#column-buffer').val(), 10),
+                              "rowstep": parseFloat($('#row-step').val(), 10),
+                              "columnstep": parseFloat($('#column-step').val(), 10),
+                              //pixels
+                              //"rowbuffer":parseInt($('#row-buffer').val(), 10),
+                              //"columnbuffer":parseInt($('#column-buffer').val(), 10)
+                        }*/
                   applySettings(settings);
                   }
             }
@@ -116,12 +163,41 @@
             function applySettings(settings, canvasData){
                   if(settings.zoom){
                         cropper.zoomTo(settings.zoom/100);
-                        delete settings.zoom;
+                        //delete settings.zoom;
                   }
                   if(settings.rotate){
                         cropper.rotateTo(settings.rotate);
-                        delete settings.rotate;
+                        //delete settings.rotate;
                   }
+                  redrawBuffersAndNumbering(settings);
+                  showHideFieldOverlay();
+                  cropper.setData(settings);
+
+                  if(canvasData){
+                        cropper.setCanvasData(canvasData);
+                  }
+
+            }
+
+            //returns true if the plot should be omitted
+            function checkOmit(plotNumbering){
+                  var omits = $('#omit-plots').val().replace(/ /g,'').split(',');
+                  ret = false
+                  //first make sure all items in the list are valid numbers, if not set the flag to false
+                  for (var i = 0; i < omits.length; i++){
+                        if(isNaN(omits[i])){
+                              //text field is incorrect - omit nothing
+                              return false;
+                        }else{
+                              if(plotNumbering == parseInt(omits[i])){
+                                    ret = true;
+                              }
+                        }
+                  }
+                  return ret;
+            }
+
+            function redrawBuffersAndNumbering(settings){
                   //draw the boxes and numbers
                   if(settings.rows&&settings.columns && settings.rowbuffer && settings.columnbuffer){
                         //hide the dotted lines
@@ -138,15 +214,26 @@
                               $(this).remove();
                         });
 
-                        //canvas width * zoom
+                        /*
+                        //canvas (widthorHeight) * (zoom/100) * (buffer/100)
                         //draw horizontal lines
                         for (var i = 0 ; i < (parseInt(settings.rows, 10)); i++){
-                              $(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-bottom-width: '+ parseInt(settings.rowbuffer, 10) +'px; border-top-width: '+ parseInt(settings.rowbuffer, 10) +'px; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*i +'% / '+ parseInt(settings.rows, 10) +');display: block;opacity: 0.5;position: absolute; width:100%;z-index: 1;"></span>');
+                              //pixels 
+                              //$(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-bottom-width: '+ parseInt(settings.rowbuffer, 10) +'px; border-top-width: '+ parseInt(settings.rowbuffer, 10) +'px; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*i +'% / '+ parseInt(settings.rows, 10) +');display: block;opacity: 0.5;position: absolute; width:100%;z-index: 1;"></span>');
+                              //percentages
+                              $(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-bottom-width: '+ image.cropper.canvasData.height*(parseFloat(settings.rowbuffer,10)/100) +'px; border-top-width: '+ image.cropper.canvasData.height*(parseFloat(settings.rowbuffer,10)/100) +'px; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*i +'% / '+ parseInt(settings.rows, 10) +');display: block;opacity: 0.5;position: absolute; width:100%;z-index: 1;"></span>');
                         }
                         //draw vertical lines
                         for (var i = 0 ; i < parseInt(settings.columns, 10); i++){
-                              $(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-left-width: '+ parseInt(settings.columnbuffer, 10) +'px; border-right-width: '+ parseInt(settings.columnbuffer, 10) +'px; width: calc( 100% / '+ parseInt(settings.columns, 10) +'); left: calc('+100*i +'% / '+ parseInt(settings.columns, 10) +');display: block;opacity: 0.5;position: absolute; height:100%;z-index: 1;"></span>');
+                              //pixels 
+                              //$(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-left-width: '+ parseInt(settings.columnbuffer, 10) +'px; border-right-width: '+ parseInt(settings.columnbuffer, 10) +'px; width: calc( 100% / '+ parseInt(settings.columns, 10) +'); left: calc('+100*i +'% / '+ parseInt(settings.columns, 10) +');display: block;opacity: 0.5;position: absolute; height:100%;z-index: 1;"></span>');
+                              //percentages 
+                              $(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-left-width: '+ image.cropper.canvasData.width*(parseFloat(settings.columnbuffer,10)/100) +'px; border-right-width: '+ image.cropper.canvasData.width*(parseFloat(settings.columnbuffer,10)/100) +'px; width: calc( 100% / '+ parseInt(settings.columns, 10) +'); left: calc('+100*i +'% / '+ parseInt(settings.columns, 10) +');display: block;opacity: 0.5;position: absolute; height:100%;z-index: 1;"></span>');
                         }
+                        */
+
+
+                        
 
                         //draw numbering
                         for (var i = 0 ; i < (parseInt(settings.columns, 10)); i++){
@@ -170,9 +257,48 @@
                                                 plotNumbering = ((j*parseInt(settings.columns, 10))+parseInt(settings.columns, 10)-i);
                                           }
                                     }
-                                    $(".cropper-crop-box").append('<span class="plot-numbering" style="color: #0e0; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*j +'% / '+ parseInt(settings.rows, 10) +'); width: calc( 100% / '+ parseInt(settings.columns, 10) +'); left: calc('+100*i +'% / '+ parseInt(settings.columns, 10) +'); display: block;opacity: 0.5;position: absolute; z-index: 1; line-height: calc( 100% / '+ parseInt(settings.rows, 10) +'); text-align: center;font-size: 16px;"><div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">'+plotNumbering+'</div></span>');
-                                    
+                                    //if the plot number is in the omit list we will black it out else display it as normal
+                                    if(checkOmit(plotNumbering)){
+                                          $(".cropper-crop-box").append(
+                                                '<span class="plot-numbering" '+
+                                                'style="'+
+                                                      'color: #0e0; '+
+                                                      'background:#000; '+
+                                                      'height: calc( ( 100%  - ' + (image.cropper.canvasData.height*(parseFloat(settings.topfieldbuffer,10)/100) + image.cropper.canvasData.height*(parseFloat(settings.bottomfieldbuffer,10)/100)) +'px ) / '+ parseInt(settings.rows, 10) +'  ); '+
+                                                      'top: calc(('+100*j +'% / '+ parseInt(settings.rows, 10) +') + '+image.cropper.canvasData.height*(parseFloat(settings.columnstep,10)/100)*i+'px + ( '+(image.cropper.canvasData.height*(parseFloat(settings.topfieldbuffer,10)/100))+'px * '+((parseInt(settings.rows, 10)-j))/parseInt(settings.rows, 10)+' ) - ( '+(image.cropper.canvasData.height*(parseFloat(settings.bottomfieldbuffer,10)/100))+'px * '+ j/parseInt(settings.rows, 10) + ' ) ); '+
+                                                      'width: calc( ( 100%  - '+ (image.cropper.canvasData.width*(parseFloat(settings.leftfieldbuffer,10)/100) + image.cropper.canvasData.width*(parseFloat(settings.rightfieldbuffer,10)/100))+'px ) / '+ parseInt(settings.columns, 10) +'); '+
+                                                      'left: calc(('+100*i +'% / '+ parseInt(settings.columns, 10) +') + '+image.cropper.canvasData.width*(parseFloat(settings.rowstep,10)/100)*j+'px + ( '+(image.cropper.canvasData.width*(parseFloat(settings.leftfieldbuffer,10)/100))+'px * '+((parseInt(settings.columns, 10)-i))/parseInt(settings.columns, 10)+' ) - ( '+(image.cropper.canvasData.width*(parseFloat(settings.rightfieldbuffer,10)/100))+'px * '+ i/parseInt(settings.columns, 10) + ' ) ); '+
+                                                      'display: block;opacity: 0.9;position: absolute; z-index: 1; '+
+                                                      'line-height: calc( 100% / '+ parseInt(settings.rows, 10) +'); text-align: center;font-size: 16px;border: 0 solid #0e0;border-bottom-width: '+ image.cropper.canvasData.height*(parseFloat(settings.rowbuffer,10)/100) +'px; '+
+                                                      'border-top-width: '+ image.cropper.canvasData.height*(parseFloat(settings.rowbuffer,10)/100) +'px;border-left-width: '+ image.cropper.canvasData.width*(parseFloat(settings.columnbuffer,10)/100) +'px; '+
+                                                      'border-right-width: '+ image.cropper.canvasData.width*(parseFloat(settings.columnbuffer,10)/100) +'px;">'+
+                                                '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">'+plotNumbering+'</div></span>'
+                                          );
+                                    } else {
+                                          //original
+                                          //$(".cropper-crop-box").append('<span class="plot-numbering" style="color: #0e0; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*j +'% / '+ parseInt(settings.rows, 10) +'); width: calc( 100% / '+ parseInt(settings.columns, 10) +'); left: calc('+100*i +'% / '+ parseInt(settings.columns, 10) +'); display: block;opacity: 0.9;position: absolute; z-index: 1; line-height: calc( 100% / '+ parseInt(settings.rows, 10) +'); text-align: center;font-size: 16px;border: 0 solid #0e0;border-bottom-width: '+ image.cropper.canvasData.height*(parseFloat(settings.rowbuffer,10)/100) +'px; border-top-width: '+ image.cropper.canvasData.height*(parseFloat(settings.rowbuffer,10)/100) +'px;border-left-width: '+ image.cropper.canvasData.width*(parseFloat(settings.columnbuffer,10)/100) +'px; border-right-width: '+ image.cropper.canvasData.width*(parseFloat(settings.columnbuffer,10)/100) +'px;"><div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">'+plotNumbering+'</div></span>');
+                                          $(".cropper-crop-box").append(
+                                                '<span class="plot-numbering" '+
+                                                'style="'+
+                                                      'color: #0e0; '+
+                                                      //'background:#000; '+
+                                                      'height: calc( ( 100%  - ' + (image.cropper.canvasData.height*(parseFloat(settings.topfieldbuffer,10)/100) + image.cropper.canvasData.height*(parseFloat(settings.bottomfieldbuffer,10)/100)) +'px ) / '+ parseInt(settings.rows, 10) +'  ); '+
+                                                      'top: calc(('+100*j +'% / '+ parseInt(settings.rows, 10) +') + '+image.cropper.canvasData.height*(parseFloat(settings.columnstep,10)/100)*i+'px + ( '+(image.cropper.canvasData.height*(parseFloat(settings.topfieldbuffer,10)/100))+'px * '+((parseInt(settings.rows, 10)-j))/parseInt(settings.rows, 10)+' ) - ( '+(image.cropper.canvasData.height*(parseFloat(settings.bottomfieldbuffer,10)/100))+'px * '+ j/parseInt(settings.rows, 10) + ' ) ); '+
+                                                      'width: calc( ( 100%  - '+ (image.cropper.canvasData.width*(parseFloat(settings.leftfieldbuffer,10)/100) + image.cropper.canvasData.width*(parseFloat(settings.rightfieldbuffer,10)/100))+'px ) / '+ parseInt(settings.columns, 10) +'); '+
+                                                      'left: calc(('+100*i +'% / '+ parseInt(settings.columns, 10) +') + '+image.cropper.canvasData.width*(parseFloat(settings.rowstep,10)/100)*j+'px + ( '+(image.cropper.canvasData.width*(parseFloat(settings.leftfieldbuffer,10)/100))+'px * '+((parseInt(settings.columns, 10)-i))/parseInt(settings.columns, 10)+' ) - ( '+(image.cropper.canvasData.width*(parseFloat(settings.rightfieldbuffer,10)/100))+'px * '+ i/parseInt(settings.columns, 10) + ' ) ); '+
+                                                      'display: block;opacity: 0.9;position: absolute; z-index: 1; '+
+                                                      'line-height: calc( 100% / '+ parseInt(settings.rows, 10) +'); text-align: center;font-size: 16px;border: 0 solid #0e0;border-bottom-width: '+ image.cropper.canvasData.height*(parseFloat(settings.rowbuffer,10)/100) +'px; '+
+                                                      'border-top-width: '+ image.cropper.canvasData.height*(parseFloat(settings.rowbuffer,10)/100) +'px;border-left-width: '+ image.cropper.canvasData.width*(parseFloat(settings.columnbuffer,10)/100) +'px; '+
+                                                      'border-right-width: '+ image.cropper.canvasData.width*(parseFloat(settings.columnbuffer,10)/100) +'px;">'+
+                                                '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">'+plotNumbering+'</div></span>'
+                                          );
+                                    }
                               }
+                        }
+                        if(!$('#showNumbering').prop('checked')){
+                              $(".plot-numbering").each(function( element ) {
+                                    $(this).hide();
+                              });
                         }
                   } else {
                         //show the dotted lines
@@ -188,14 +314,8 @@
                               $(this).remove();
                         });
                   }
-                  showHideFieldOverlay();
-                  cropper.setData(settings);
-
-                  if(canvasData){
-                        cropper.setCanvasData(canvasData);
-                  }
-
             }
+
 
             function setInputFilterAndUpdates(textbox, inputFilter) {
                   ["input", "keydown", "keyup", "mousedown", "mouseup", "select", "contextmenu", "drop"].forEach(function(event) {
@@ -215,6 +335,31 @@
                               updateCanvas();
                         });
                   });
+            }
+
+            async function bindMouseListenerToCropperFace(){
+                  //ensure that cropper is loaded
+                  await new Promise(resolve => setTimeout(resolve, 200));
+
+                  var $body = $('.cropper-face')[0];
+                  var drag = false;
+
+                  $body.addEventListener('mousedown', function (evt) {
+                        drag = false;
+                  });
+                  
+                  $body.addEventListener('mouseup', function handler(event) {
+                        if (!drag) {
+                              window.alert("X: "+event.clientX +" Y: " + event.clientY);
+                        }
+                  });
+
+                  $body.addEventListener('mousemove', function handler(event) { 
+                        drag = true;
+                  });
+                  
+            
+            
             }
 
             async function slice(){
@@ -244,11 +389,12 @@
                               
                               tempCanvasData = tempCropper.getCanvasData();
                               //buffer/window = x/canvas
+
                               settings = {
                                     "x":Math.round((x*tempCanvasData.width/parseInt($('#columns').val(), 10))+(parseInt($('#column-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
-                                    "y":Math.round((y*tempCanvasData.height/parseInt($('#rows').val(), 10))+(parseInt($('#row-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
+                                    "y":Math.round((y*tempCanvasData.height/parseInt($('#rows').val(), 10))+(parseInt($('#row-buffer').val(),10)*(image.cropper.canvasData.naturalHeight / image.cropper.canvasData.height))),
                                     "width":Math.round((tempCanvasData.width/parseInt($('#columns').val(), 10))-2*(parseInt($('#column-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
-                                    "height":Math.round((tempCanvasData.height/parseInt($('#rows').val(), 10))-2*(parseInt($('#row-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width)))
+                                    "height":Math.round((tempCanvasData.height/parseInt($('#rows').val(), 10))-2*(parseInt($('#row-buffer').val(),10)*(image.cropper.canvasData.naturalHeight / image.cropper.canvasData.height)))
                               }
                               console.log(JSON.stringify(settings));
                               tempCropper.setData(settings);
@@ -282,7 +428,7 @@
                   $('#image-selection-area').hide();
                   $('#image-staging-area').hide();
 
-                  var cropperSettings = getSettings();
+                  var cropperSettings = getSettings(false);
 
                   for(var i = 0; i < imageElements.length; i++){
                         imageUrls[i] = imageElements[i].src;
@@ -322,6 +468,9 @@
                                     tempCanvasData = tempCropper.getCanvasData();
                                     //buffer/window = x/canvas
                                     //calculate X
+
+                                    //pixel buffer calulation
+                                    /*
                                     var numberingScheme = parseInt($( "#selectNumbering" ).val(), 10);
                                     if( numberingScheme == 1){
                                           xOffset = (x*tempCanvasData.width/parseInt($('#columns').val(), 10));
@@ -346,6 +495,71 @@
                                           "width":Math.round((tempCanvasData.width/parseInt($('#columns').val(), 10))-2*(parseInt($('#column-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width))),
                                           "height":Math.round((tempCanvasData.height/parseInt($('#rows').val(), 10))-2*(parseInt($('#row-buffer').val(),10)*(image.cropper.canvasData.naturalWidth / image.cropper.canvasData.width)))
                                     }
+                                    */
+                                    //pixels 
+                                    //$(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-bottom-width: '+ parseInt(settings.rowbuffer, 10) +'px; border-top-width: '+ parseInt(settings.rowbuffer, 10) +'px; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*i +'% / '+ parseInt(settings.rows, 10) +');display: block;opacity: 0.5;position: absolute; width:100%;z-index: 1;"></span>');
+                                    //percentages
+                                    //$(".cropper-crop-box").prepend('<span class="field-lines" style="border: 0 solid #0e0;border-bottom-width: '+ image.cropper.canvasData.height*(parseFloat(settings.rowbuffer,10)/100) +'px; border-top-width: '+ image.cropper.canvasData.height*(parseInt(settings.rowbuffer,10)/100) +'px; height: calc( 100% / '+ parseInt(settings.rows, 10) +'); top: calc('+100*i +'% / '+ parseInt(settings.rows, 10) +');display: block;opacity: 0.5;position: absolute; width:100%;z-index: 1;"></span>');
+                                    //'left: calc(('+100*i +'% / '+ parseInt(settings.columns, 10) +') + '+image.cropper.canvasData.width*(parseFloat(settings.rowstep,10)/100)*j+'px + ( '+(image.cropper.canvasData.width*(parseFloat(settings.leftfieldbuffer,10)/100))+'px * '+((parseInt(settings.columns, 10)-i))/parseInt(settings.columns, 10)+' ) - ( '+(image.cropper.canvasData.width*(parseFloat(settings.rightfieldbuffer,10)/100))+'px * '+ i/parseInt(settings.columns, 10) + ' ) ); '+
+                                                      
+                                    // percentage buffer calculation
+                                    var numberingScheme = parseInt($( "#selectNumbering" ).val(), 10);
+                                    if( numberingScheme == 1){
+                                          leftOffset = (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.leftfieldbuffer,10)/100))*((parseInt(cropperSettings.columns, 10)-x))/parseInt(cropperSettings.columns, 10);
+                                          rightOffset = - (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.rightfieldbuffer,10)/100)) * x/parseInt(cropperSettings.columns, 10)
+                                          xOffset = (x*tempCanvasData.naturalWidth/parseInt($('#columns').val(), 10));
+                                          columnStepOffset = image.cropper.canvasData.naturalHeight*(parseFloat($('#column-step').val(),10)/100)*x;
+                                    }else if(numberingScheme == 2){
+                                          leftOffset = (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.leftfieldbuffer,10)/100))*x/parseInt(cropperSettings.columns, 10);
+                                          rightOffset = - (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.rightfieldbuffer,10)/100)) * ((parseInt(cropperSettings.columns, 10)-x))/parseInt(cropperSettings.columns, 10)
+
+                                          xOffset = ((parseInt($('#columns').val(), 10)-x-1)*tempCanvasData.naturalWidth/parseInt($('#columns').val(), 10));
+                                          columnStepOffset = image.cropper.canvasData.naturalHeight*(parseFloat($('#column-step').val(),10)/100)*(parseInt($('#columns').val(),10)-x-1);
+                                    }else if(numberingScheme == 3){
+                                          if(y%2  == 0){
+                                                leftOffset = (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.leftfieldbuffer,10)/100))*((parseInt(cropperSettings.columns, 10)-x))/parseInt(cropperSettings.columns, 10);
+                                                rightOffset = - (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.rightfieldbuffer,10)/100)) * x/parseInt(cropperSettings.columns, 10)
+                                          
+                                                xOffset = (x*tempCanvasData.naturalWidth/parseInt($('#columns').val(), 10));
+                                                columnStepOffset = image.cropper.canvasData.naturalHeight*(parseFloat($('#column-step').val(),10)/100)*x;
+                                          }else{
+                                                leftOffset = (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.leftfieldbuffer,10)/100))*x/parseInt(cropperSettings.columns, 10);
+                                                rightOffset = - (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.rightfieldbuffer,10)/100)) * ((parseInt(cropperSettings.columns, 10)-x))/parseInt(cropperSettings.columns, 10)
+
+                                                xOffset = ((parseInt($('#columns').val(), 10)-x-1)*tempCanvasData.naturalWidth/parseInt($('#columns').val(), 10));
+                                                columnStepOffset = image.cropper.canvasData.naturalWidth*(parseFloat($('#column-step').val(),10)/100)*(parseInt($('#columns').val(),10)-x-1);
+                                          }
+                                    }else if(numberingScheme == 4){
+                                          if(y%2  != 0){
+                                                leftOffset = (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.leftfieldbuffer,10)/100))*((parseInt(cropperSettings.columns, 10)-x))/parseInt(cropperSettings.columns, 10);
+                                                rightOffset = - (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.rightfieldbuffer,10)/100)) * x/parseInt(cropperSettings.columns, 10)
+                                          
+                                                xOffset = (x*tempCanvasData.naturalWidth/parseInt($('#columns').val(), 10));
+                                                columnStepOffset = image.cropper.canvasData.naturalHeight*(parseFloat($('#column-step').val(),10)/100)*x;
+                                          }else{
+                                                leftOffset = (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.leftfieldbuffer,10)/100))*x/parseInt(cropperSettings.columns, 10);
+                                                rightOffset = - (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.rightfieldbuffer,10)/100)) * ((parseInt(cropperSettings.columns, 10)-x))/parseInt(cropperSettings.columns, 10)
+
+                                                xOffset = ((parseInt($('#columns').val(), 10)-x-1)*tempCanvasData.naturalWidth/parseInt($('#columns').val(), 10));
+                                                columnStepOffset = image.cropper.canvasData.naturalHeight*(parseFloat($('#column-step').val(),10)/100)*(parseInt($('#columns').val(),10)-x-1);
+                                          }
+                                    }
+                                    topOffset = (image.cropper.canvasData.height*(parseFloat(cropperSettings.topfieldbuffer,10)/100))*((parseInt(cropperSettings.rows, 10)-y))/parseInt(cropperSettings.rows, 10);
+                                    bottomOffset = - (image.cropper.canvasData.height*(parseFloat(cropperSettings.bottomfieldbuffer,10)/100)) * y/parseInt(cropperSettings.rows, 10); 
+                                    rowStepOffset = image.cropper.canvasData.width*(parseFloat($('#column-step').val(),10)/100)*y;
+                                    settings = {
+                                          "x":Math.round(xOffset+leftOffset+rightOffset+rowStepOffset+(parseInt(image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.columnbuffer,10)/100)))),
+                                          "y":Math.round(columnStepOffset+topOffset+bottomOffset+(y*tempCanvasData.height/parseInt($('#rows').val(), 10))+(parseInt(image.cropper.canvasData.naturalHeight*(parseFloat(cropperSettings.rowbuffer,10)/100)))),
+                                          //"width":Math.round(((tempCanvasData.width-(parseFloat(image.cropper.canvasData.width,10)*(parseFloat(cropperSettings.leftfieldbuffer,10)+parseFloat(cropperSettings.rightfieldbuffer,10))/100))/parseInt($('#columns').val(), 10))-2*(parseInt((image.cropper.canvasData.width*1-((parseFloat(cropperSettings.leftfieldbuffer,10)+parseFloat(cropperSettings.rightfieldbuffer,10))/100))*(parseFloat(cropperSettings.columnbuffer,10)/100)),10)),
+                                          //"height":Math.round(((tempCanvasData.height-(parseFloat(image.cropper.canvasData.height,10)*(parseFloat(cropperSettings.topfieldbuffer,10)+parseFloat(cropperSettings.bottomfieldbuffer,10))/100))/parseInt($('#rows').val(), 10))-2*(parseInt((image.cropper.canvasData.height*1-((parseFloat(cropperSettings.topfieldbuffer,10)+parseFloat(cropperSettings.bottomfieldbuffer,10))/100))*(parseFloat(cropperSettings.rowbuffer,10)/100)),10))
+                                          //"width":((tempCanvasData.width-(parseFloat(cropperSettings.leftfieldbuffer,10)+parseFloat(cropperSettings.rightfieldbuffer,10))*parseFloat(image.cropper.canvasData.width,10)/100)/parseInt($('#columns').val(), 10))-(2*parseFloat(cropperSettings.columnbuffer,10)*image.cropper.canvasData.width/100),
+                                          //"height":((tempCanvasData.height-(parseFloat(cropperSettings.topfieldbuffer,10)+parseFloat(cropperSettings.bottomfieldbuffer,10))*parseFloat(image.cropper.canvasData.height,10)/100)/parseInt($('#rows').val(), 10))-(2*parseFloat(cropperSettings.rowbuffer,10)*image.cropper.canvasData.height/100)
+                                          "width":  (tempCanvasData.width  -  (image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.leftfieldbuffer,10)/100) + image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.rightfieldbuffer,10)/100))) / parseInt(cropperSettings.columns, 10)-(2*image.cropper.canvasData.naturalWidth*(parseFloat(cropperSettings.columnbuffer,10)/100)),
+                                          "height": (tempCanvasData.height  - (image.cropper.canvasData.naturalHeight*(parseFloat(cropperSettings.topfieldbuffer,10)/100) + image.cropper.canvasData.naturalHeight*(parseFloat(cropperSettings.bottomfieldbuffer,10)/100))) /  parseInt(cropperSettings.rows, 10)-(2*image.cropper.canvasData.naturalHeight*(parseFloat(cropperSettings.rowbuffer,10)/100))
+                                    }
+                                   // window.alert("width: "+ settings.width+ " height: "+settings.height);
+                                    console.log("tempCanvas width = " + tempCanvasData.width +" tempCanvas height = " + tempCanvasData.height) ;
+                                    console.log("cropper data = "+JSON.stringify(image.cropper.getData()));
                                     console.log(JSON.stringify(settings));
                                     tempCropper.setData(settings);
                                     
@@ -358,18 +572,21 @@
 
                                     //do something cool with those sliced images
                                     
-                                    
-                                    var imageLine = 
-                                    '<div class="row" style="margin-bottom:1px;">'+
-                                          '<div class="col-2">'+
-                                                '<img id="plot-image" src="'+tempUrl+'" style="max-width:100%">'+
-                                          '</div>'+
-                                          '<div class="col-10">'+
-                                                $('#image-'+i+'-name').val() +'-'+ ((y*parseInt($('#columns').val(), 10))+x+1) +
-                                          '</div>'+
-                                    '</div>';  
+                                    //if the plot number is on the omit list do not use it
+                                    if(!checkOmit((y*parseInt($('#columns').val(), 10))+x+1)){
 
-                                    resultsContainer.append(imageLine);
+                                          var imageLine = 
+                                          '<div class="row" style="margin-bottom:1px;">'+
+                                                '<div class="col-2">'+
+                                                      '<img id="plot-image" src="'+tempUrl+'" style="max-width:100%">'+
+                                                '</div>'+
+                                                '<div class="col-10">'+
+                                                      $('#image-'+i+'-name').val() +'-'+ ((y*parseInt($('#columns').val(), 10))+x+1) +
+                                                '</div>'+
+                                          '</div>';  
+
+                                          resultsContainer.append(imageLine);
+                                    }
                               }
 
                         }
@@ -418,7 +635,7 @@
 </head>
 <body>
       {{>navbar}}
-      <div class="container">
+      <div class="container-fluid">
 
             <div class="row">
                   <div class="col-12">
@@ -633,6 +850,86 @@
                                           updateCanvas();
                                     })
                               </script>
+                        </div>
+
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="top-field-buffer">Top Field Buffer:</label>
+                              <input type="text" class="form-control col-6" id="top-field-buffer" value="0">
+                              <script>
+                              $('#top-field-buffer').change(function() {
+                                          updateCanvas();
+                                    })
+                              </script>
+                              </div>
+                        </div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="bottom-field-buffer">Bottom Field Buffer:</label>
+                              <input type="text" class="form-control col-6" id="bottom-field-buffer" value="0">
+                              <script>
+                              $('#bottom-field-buffer').change(function() {
+                                          updateCanvas();
+                                    })
+                              </script>
+                              </div>
+                        </div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="top-field-buffer">Left Field Buffer:</label>
+                              <input type="text" class="form-control col-6" id="left-field-buffer" value="0">
+                              <script>
+                              $('#left-field-buffer').change(function() {
+                                          updateCanvas();
+                                    })
+                              </script>
+                              </div>
+                        </div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="top-field-buffer">Right Field Buffer:</label>
+                              <input type="text" class="form-control col-6" id="right-field-buffer" value="0">
+                              <script>
+                              $('#right-field-buffer').change(function() {
+                                          updateCanvas();
+                                    })
+                              </script>
+                              </div>
+                        </div>
+                        
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="row-step">Row Step:</label>
+                              <input type="text" class="form-control col-6" id="row-step" value="0">
+                              <script>
+                              setInputFilterAndUpdates(document.getElementById("row-step"), function(value) {
+                                    return /^[-+]?[0-9]*\.?[0-9]+$/.test(value); // Allow positive whole numbers using a RegExp
+                              });
+                              </script>
+                              </div>
+                        </div>
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="column-step">Column Step:</label>
+                              <input type="text" class="form-control col-6" id="column-step" value="0">
+                              <script>
+                              setInputFilterAndUpdates(document.getElementById("column-step"), function(value) {
+                                    return /^[-+]?[0-9]*\.?[0-9]+$/.test(value); // Allow positive whole numbers using a RegExp
+                              });
+                              </script>
+                              </div>
+                        </div>
+
+                        <div class="form-group">
+                              <div class="form-row">
+                              <label class="col-6" for="omit-plots">Omit Plots:</label>
+                              <input type="text" class="form-control col-6" id="omit-plots">
+                              <script>
+                                    $('#omit-plots').change(function() {
+                                          updateCanvas();
+                                    })
+                              </script>
+                              </div>
                         </div>
 
                         <div class="form-check">
