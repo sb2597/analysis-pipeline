@@ -68,6 +68,10 @@ async function start(){
     services = require(__dirname+'/db/services/baseServices');
     testModel = require(__dirname+'/model/testmodel');
     services.insert(sequelize, testModel, {username: "two"});
+    
+    accountModel = require(__dirname+'/model/loginAuthority');
+    services.insert(sequelize, accountModel, {authorityName: "Breedbase", authorityURL: "http://localhost:7080/brapi/authorize?display_name=Image%20Analysis%20Pipeline&return_url="});
+
     response = await services.select(sequelize, testModel, {username: "two"});
     console.log("Test select ="+ JSON.stringify(response));
     await services.truncate(sequelize,testModel);

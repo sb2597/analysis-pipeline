@@ -29,6 +29,7 @@ module.exports = {
     const DataTypes = require('sequelize/lib/data-types');
     const sequelize = new Sequelize(configJson.dbdatabase, configJson.dbuser, configJson.dbpassword, {
       host: configJson.dbhost,
+      port: configJson.dbport,
       dialect: 'postgres',
     
       pool: {

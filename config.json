@@ -3,5 +3,5 @@
   "dbdatabase": "postgres",
   "dbuser": "postgres",
   "dbpassword": "postgres",
-  "dbport": "5432"
+  "dbport": "5433"
 }
