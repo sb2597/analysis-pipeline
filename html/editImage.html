@@ -732,6 +732,8 @@
                                     },
                                     dataType: 'json',
                                     success: function (data) {
+                                          //TODO this can return with an error and still be a 400... check for it!
+                                          
                                           var studies = data.result.data;
                                           $('#studies').html('');
                                           for(var i=0; i < studies.length; i++){
