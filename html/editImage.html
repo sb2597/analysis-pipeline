@@ -9,8 +9,11 @@
             var image = null;
             $(window).on('load', function() {
                   bindCropper();
+                  hideAllSlides();
             });
-
+            function hideAllSlides(){
+                  $("div[id^=slide]").each(function(){ $(this).hide(); });
+            }
             var lastzoom=null;
             function bindCropper(){
                   if(cropper != null){
@@ -421,12 +424,17 @@
             }
 
             async function sliceImageSet(imageElements, imageContainer, resultsContainer){
+                  imageContainer.html('');
+                  resultsContainer.html('');
+                  $('upload-images-button').hide();
+
+
                   var tempCropper;
 
                   var imageUrls = [];
 
-                  $('#image-selection-area').hide();
-                  $('#image-staging-area').hide();
+                  //$('#image-selection-area').hide();
+                  //$('#image-staging-area').hide();
 
                   var cropperSettings = getSettings(false);
 
@@ -557,7 +565,6 @@
                                           //"width":((tempCanvasData.width-(parseFloat(cropperSettings.leftfieldbuffer,10)+parseFloat(cropperSettings.rightfieldbuffer,10))*parseFloat(image.cropper.canvasData.width,10)/100)/parseInt($('#columns').val(), 10))-(2*parseFloat(cropperSettings.columnbuffer,10)*image.cropper.canvasData.width/100),
                                           //"height":((tempCanvasData.height-(parseFloat(cropperSettings.topfieldbuffer,10)+parseFloat(cropperSettings.bottomfieldbuffer,10))*parseFloat(image.cropper.canvasData.height,10)/100)/parseInt($('#rows').val(), 10))-(2*parseFloat(cropperSettings.rowbuffer,10)*image.cropper.canvasData.height/100)
                                     }
-                                   // window.alert("width: "+ settings.width+ " height: "+settings.height);
                                     console.log("tempCanvas width = " + tempCanvasData.width +" tempCanvas height = " + tempCanvasData.height) ;
                                     console.log("cropper data = "+JSON.stringify(image.cropper.getData()));
                                     console.log(JSON.stringify(settings));
@@ -574,14 +581,27 @@
                                     
                                     //if the plot number is on the omit list do not use it
                                     if(!checkOmit((y*parseInt($('#columns').val(), 10))+x+1)){
-
+                                          var plotNumber = ((y*parseInt($('#columns').val(), 10))+x+1);
                                           var imageLine = 
                                           '<div class="row" style="margin-bottom:1px;">'+
                                                 '<div class="col-2">'+
-                                                      '<img id="plot-image" src="'+tempUrl+'" style="max-width:100%">'+
+                                                      '<img id="plot-image-'+i+'-plot-'+plotNumber+'" src="'+tempUrl+'" style="max-width:100%">'+
                                                 '</div>'+
                                                 '<div class="col-10">'+
-                                                      $('#image-'+i+'-name').val() +'-'+ ((y*parseInt($('#columns').val(), 10))+x+1) +
+                                                      '<div class="row" id="image-'+i+'-plot-'+plotNumber+'-name">'+
+                                                            $('#image-'+i+'-name').val() +'-'+ plotNumber +
+                                                      '</div>'+
+                                                      '<div class="row">'+
+                                                            '<div class="col-3">'+
+                                                                  '<label>Select Plot:</label>'+
+                                                            '</div>'+
+                                                            '<div class="col-9">'+
+                                                                  '<select class="form-control" id="image-'+i+'-plot-'+plotNumber+'" name="plot-input">'+
+
+                                                                  '</select>'+
+                                                            '</div>'+
+                                                            '</select>'+
+                                                      '</div>'+
                                                 '</div>'+
                                           '</div>';  
 
@@ -597,9 +617,22 @@
 
                   }
 
-                  //window.URL.revokeObjectURL(tempUrl); 
+                  getPlotsForStudy(JSON.parse($( "#studies" ).val()).studyDbId, function(plots){
 
-                  //});
+                        var options = '<option> </option>';
+                        for (const [key, value] of Object.entries(plots)) {
+                              options += '<option value ='+value+'>'+key+'</option>';
+                        }
+
+                        $( "select[name='plot-input']" ).each(function() {
+                              $( this ).html(options);
+                        });
+      
+                  
+                  });
+
+                  $('upload-images-button').show();
+
             }
 
             function showHideFieldOverlay(){
@@ -624,14 +657,560 @@
                   }
             }
 
-            function startProcess(){
+            function changeSlide(slideNumber, updateLoadingBar){
+                  //TODO going to slide 0 will cause an error right now. fix.
+                  var slides = [
+                        $('#slide-error'),
+                        $('#slide-1'),
+                        $('#slide-2'),
+                        $('#slide-3'),
+                        $('#slide-4')
+                  ];
+
+                  hideAllSlides(); 
+                  slides[slideNumber].show();
+                  if(updateLoadingBar){
+                        let barWidths = ["20%", "40%", "61%", "82%"];
+                        //change the style of the progress bar
+                        $('#progress-bar').css("width", barWidths[slideNumber-1]);
+
+                        let progressMenus = [
+                              $('#progress-1'),
+                              $('#progress-2'),
+                              $('#progress-3'),
+                              $('#progress-4'),
+                        ]
+
+                        for(var i = 0; i < progressMenus.length; i++){
+                              progressMenus[i].removeClass('active-slide');
+                              progressMenus[i].removeClass('inactive-slide');
+
+                              if(i <= slideNumber-1){
+                                    progressMenus[i].addClass('active-slide');
+                                    progressMenus[i].off("click");
+                                    let temp = i+1;
+                                    progressMenus[i].click(function() { 
+                                          changeSlide(temp, false) 
+                                    });
+
+                              }else{
+                                    progressMenus[i].addClass('inactive-slide');
+                                    progressMenus[i].off("click");
+                              }
+                        }
+                  }
+            }
+
+            function findStudies(){
+                  getVehicleInfo();
+
+                  var url_string = window.location.href;
+                  var url = new URL(url_string);
+                  var token = url.searchParams.get("token");
+
+                  $.ajax({
+                        //url: 'http://localhost:7080/brapi/v2/search/studies',
+                        url: "{{#account.logged_in}}{{{api.searchStudies.url}}}{{/account.logged_in}}",
+                        type: 'post',
+                        data: {
+                              pageSize:1000
+                        },
+                        headers: {
+                              Authorization: 'Bearer '+token,
+                        },
+                        dataType: 'json',
+                        success: function (data) {
+                              $.ajax({
+                                    //url: 'http://localhost:7080/brapi/v2/search/studies/'+data.result.searchResultDbId,
+                                    url: "{{#account.logged_in}}{{{api.searchStudies.url}}}{{/account.logged_in}}/"+data.result.searchResultDbId,
+                                    type: 'get',
+                                    data: {
+                                          
+                                    },
+                                    headers: {
+                                          //Authorization: 'Bearer '+token,
+                                    },
+                                    dataType: 'json',
+                                    success: function (data) {
+                                          var studies = data.result.data;
+                                          $('#studies').html('');
+                                          for(var i=0; i < studies.length; i++){
+                                                $('#studies').append(
+                                                      `<option value='`+JSON.stringify(studies[i])+`'>`+studies[i].studyName+`</option>`
+                                                );
+                                          }
+                                          changeSlide(2,true);
+                                          //JSON.parse($( "#studies" ).val());
+                                          showStudyDetails();
+                                          
+                                    },
+                                    error: function (data) {
+                                          console.log('fail');
+                                          window.alert(JSON.stringify(data));
+                                          changeSlide(0, false);
+
+                                    }
+                              });
+                        },
+                        error: function (data) {
+                              console.log('fail');
+                              window.alert(JSON.stringify(data));
+                              changeSlide(0, false);
+
+                        }
+                  });
+            }
+
+            function getPlotsForStudy(studyId, callback, plots, page){
+                  var url_string = window.location.href;
+                  var url = new URL(url_string);
+                  var token = url.searchParams.get("token");
+
+                  //var getPlotsUrl = "http://localhost:7080/brapi/v2/observationunits";
+                  var getPlotsUrl = "{{#account.logged_in}}{{{api.observationUnits.url}}}{{/account.logged_in}}";
+                  getPlotsUrl+= "?studyDbId="+studyId+"&observationLevel=plot";
+                  if (page){
+                        getPlotsUrl+="&page="+page;
+                  }
+                  if (!plots){
+                        var plots = {};
+                  }
+
+                  $.ajax({
+                        url: getPlotsUrl,
+                        //type: 'post',
+                        //data: {
+
+                        //},
+                        headers: {
+                              Authorization: 'Bearer '+token,
+                        },
+                        dataType: 'json',
+                        success: function (data) {
+                              //add the data to the list.
+                              data["result"]["data"].forEach(element => plots[element.observationUnitName] = element.observationUnitDbId);
+                              //check if this is the last page. if it is then go to callback, 
+                              if(data.metadata.pagination.currentPage+1 == data.metadata.pagination.totalPages){
+                                    if(callback){
+                                          
+                                          callback(plots);
+                                    }
+                              }else{
+                                    getPlotsForStudy(studyId, callback, plots, data.metadata.pagination.currentPage+1)
+                              }
+
+                        },
+                        error: function (data) {
+
+                        }
+                  });
+            
+            }
+
+            function showStudyDetails(){
+                  var details = JSON.parse($( "#studies" ).val());
+                  var html = '<div class="row">Study Details:</div><div class="row">';
+                  for (const [key, value] of Object.entries(details)) {
+                        if(value && value != null && typeof value !== 'object'){
+                              html+='<div class="col-12">'+key+': '+value+'</div>';
+                        }
+                  }
+                  html += "</div>";
+                  $('#studyDetails').html(html);
+            }
+            
+            async function sendImageUpload(){
+                  var form = new FormData();
+                  form.append("drone_run_name", $('#drone_run_name').val());
+                  form.append("drone_run_type", $('#drone_run_type').val());
+                  form.append("drone_run_date", $('#drone_run_date').val());
+
+                  
+
+                  if($('#vehicle-name-select').val() == "new"){
+                        var batteries = '';
+                        var batteryComponents = $('[name *= new-vehicle-battery]').length;
+                        var selected = 0;
+                        for (var i = 0; i < batteryComponents.length ; i+=2 ){
+                              battery = (battery==''?'':',')+batteryComponents[i].val();
+                              if ($('[name *= new-vehicle-battery')[i+1].checked){
+                                    selected = ((i-1)/2);
+                              }
+                        }
+
+                        var ret = await createNewImagingVehicle($('#new-vehicle-name').val(),$('#new-vehicle-desc').val(),'one,two,three');
+                        
+                        form.append("drone_run_imaging_vehicle_id", ret['new_vehicle_id']);
+                        form.append("drone_run_imaging_vehicle_battery_name", batteryComponents[selected]);  
+
+                  }else{
+                        form.append("drone_run_imaging_vehicle_id", JSON.parse($('#vehicle-name-select').val())['vehicle_id']);
+                        form.append("drone_run_imaging_vehicle_battery_name", $('#vehicle-battery-select').val());
+                  }
+
+
+
+                  form.append("drone_run_description", $('#drone_run_description').val());
+                  form.append("drone_image_upload_camera_info", $('#drone_image_upload_camera_info').val());
+                  form.append("drone_run_band_number", document.getElementById('select-image-set').files.length);
+                  form.append("drone_image_upload_drone_run_band_stitching", "no");
+                  form.append("drone_run_field_trial_id", JSON.parse($("#studies").val()).studyDbId );
+                  form.append("drone_image_upload_camera_info", $('drone_image_upload_camera_info').val());
+                  for(var i = 0; i < document.getElementById('select-image-set').files.length; i++){
+                        form.append("drone_run_band_name_"+i, $("#image-"+i+"-name").val());
+                        form.append("drone_run_band_description_"+i, $("#drone_run_band_description_"+i).val());
+                        form.append("drone_run_band_type_"+i, $("#drone_run_band_name_"+i).val());
+                        form.append("drone_run_band_stitched_ortho_image_"+i, document.getElementById('select-image-set').files[i], $('#image-'+i+'-name').val()+'.'+document.getElementById('select-image-set').files[i].name.split(".")[1]);
+                  
+                  }
+                  var queryString = window.location.search;
+                  var urlParams = new URLSearchParams(queryString);
+                  var token = urlParams.get('token');
+
+                  form.append("sgn_session_id", token);
+
+                  updateUploadStatus("Uploading Stitched Images...", 0);
+                  //TODO push upload drone imagery to the DB
+                  var settings = {
+                        //"url": "http://localhost:7080/api/drone_imagery/upload_drone_imagery",
+                        "url": "{{#account.logged_in}}{{{api.uploadDroneImagery.url}}}{{/account.logged_in}}",
+                        "method": "POST",
+                        "timeout": 0,
+                        "processData": false,
+                        "mimeType": "multipart/form-data",
+                        "contentType": false,
+                        "data": form
+                  };
+
+                  $.ajax(settings).done(async function (response) {
+                        console.log("Response from Upload Drone Imagery:");
+                        console.log(response);
+
+                        var currentProjectId = JSON.parse(response)['drone_run_project_id'];
+
+                        updateUploadStatus("Stitched Image Upload Complete. Gathering Plot Images...", 0);
+                        // var images = $('[id*="plot-image-0-plot-"]')
+
+                        var images = $("[id^=plot-image-]");
+
+                        var plotSelectors = $('select[id^="image-"][id*="-plot-"]');
+
+                        //TODO: Add try catch
+                        //try{ 
+                              for (var i = 0 ; i < plotSelectors.length ; i++){
+
+                                    updateUploadStatus("Uploading Image "+(i+1)+" of "+plotSelectors.length+".", Math.round(100*i/plotSelectors.length));
+                                    console.log("Uploading Image "+(i+1)+" of "+plotSelectors.length+".");
+                                    if (plotSelectors[i].value && $('#plot-'+plotSelectors[i].id)){
+                                          
+                                          var observationUnit = plotSelectors[i].value;
+                                          //var imageBlob = $('#plot-'+plotSelectors[i].id).src;
+                                          var imageBlob = await fetch($('#plot-'+plotSelectors[i].id)[0].src).then(r => r.blob());//await fetch($('#plot-'+plotSelectors[i].id).src).then(r => r.blob());
+                                          var imageName = $('#'+plotSelectors[i].id+'-name').html()+'.png';
+                                          //var projectId = response[parseInt(plotSelectors[i].id.split('-')[1])];
+                                          var projectId = JSON.parse(response)['drone_run_band_project_ids'][parseInt(plotSelectors[i].id.split('-')[1])]
+                                          console.log("imageName="+imageName+" imageBlob="+imageBlob+" observationUnit="+observationUnit+" projectId="+projectId);
+                                          // build request
+                                          await uploadSingleImage(blobToFile(imageBlob, imageName), imageName, projectId, observationUnit);
+
+                                    }
+
+                                    
+                              }
+
+                              updateUploadStatus("Upload Complete!", 100);
+
+                              $('#calculate-indicies-div').show('slow')
+
+                        //}catch(err) {
+                              //handle error message
+
+                        //}
+
+                        // //response[drone_run_band_project_ids] gets the project ids.
+                        // for (var i = 0 ; i < response[drone_run_band_project_ids] ; i++){
+                        //       //var plotCount = $('[id*="plot-image-0-plot-"]').length;
+                        //       for (var j = 0; j < plotCount; j++){
+
+                        //       } 
+                        // }
+
+                  });
+            }
+
+            async function uploadSingleImage(imageBlob, imageName, projectId, observationUnit){
+                  var form = new FormData();
+                  
+                  var queryString = window.location.search;
+                  var urlParams = new URLSearchParams(queryString);
+                  var token = urlParams.get('token');
+                  //var url = "http://localhost:7080/api/drone_imagery/save_single_plot_image";
+                  var url = "{{#account.logged_in}}{{{api.saveSinglePlotImage.url}}}{{/account.logged_in}}";
+
+                  form.append("sgn_session_id", token);
+                  form.append("observation_unit_id", observationUnit);
+                  form.append("drone_run_band_project_id", projectId);
+                  form.append("image", imageBlob, imageName);
+                  //form.append("image", fileInput.files[0], "testImage.png");
+
+                  var settings = {
+                        "url": url,
+                        "method": "POST",
+                        "timeout": 0,
+                        "processData": false,
+                        "mimeType": "multipart/form-data",
+                        "contentType": false,
+                        "data": form
+                  };
+                  var result = await $.ajax(settings);
+                  console.log(result);
+                  
+            }
+            
+            function blobToFile(theBlob, fileName){
+                  theBlob.lastModifiedDate = new Date();
+                  theBlob.name = fileName;
+                  return theBlob;
+            }
+
+            function updateUploadStatus(message, percent){
+                  $('#uploadStatus').html(message);
+                  $('#upload-progress-bar').css("width", percent+"%");
+            }
+
+            async function validateProcessImages(droneNameChange){
+                  var queryString = window.location.search;
+                  var urlParams = new URLSearchParams(queryString);
+                  var token = urlParams.get('token');
+
+                  if(droneNameChange){
+                        var droneRunNameErrors = false;
+                        //first validate the drone name
+                        await jQuery.ajax({
+                              //url : 'http://localhost:7080/api/drone_imagery/upload_drone_imagery_check_drone_name?drone_run_name='+jQuery('#drone_run_name').val(),
+                              url : '{{#account.logged_in}}{{{api.checkDroneRunName.url}}}{{/account.logged_in}}?drone_run_name='+jQuery('#drone_run_name').val(),
+                              data: { 
+                                    "sgn_session_id": token
+                              },
+                              success: function(response){
+                                    console.log(response);
+                                    if (response.success) {
+                                          $("#name-error-message").hide();
+                                          droneRunNameErrors = false;
+                                    }
+                                    else if (response.error) {
+                                          $("#name-error-message").show();
+                                          droneRunNameErrors = true;
+                                    }
+                                    return false;
+                                    },
+                              error: function(response){
+                                    alert('Error checking drone run name!');
+                              }
+                        });
+
+                        var imageNames = $('[id*="image-"][id*="-name"]');
+
+                        for (var i = 0 ; i < imageNames.length ; i++){
+                              
+                        }
+
+
+                  }
 
             }
 
+            function savePlotAssignments(){
+                  var plots = $('[id*="image-"][id*="-plot-"][class="form-control"]');
+                  var save = {};
+                  for (var i = 0; i < plots.length ; i++){
+                        save[plots[i].id] = plots[i].value;
+                  }
+                  download(JSON.stringify(save), 'plot-mapping.json', 'json')
+            }
             
+            function loadPlotAssignments(assignments){
+                  for(var i = 0 ; i < assignments.length; i++){
+                        $('#'+assignments[i].id).value = assignments[i].value;
+                  }
 
-</script>
+            }
+
+            async function createNewImagingVehicle(vehicleName, vehicleDesc, batteryNames){
+                  var queryString = window.location.search;
+                  var urlParams = new URLSearchParams(queryString);
+                  var token = urlParams.get('token');
+
+                  return await jQuery.ajax({
+                        //url : 'http://localhost:7080/api/drone_imagery/new_imaging_vehicle',
+                        url : '{{#account.logged_in}}{{{api.newImagingVehicle.url}}}{{/account.logged_in}}',
+                        data: { 
+                              "sgn_session_id": token,
+                              "vehicle_name": vehicleName,
+                              "vehicle_description": vehicleDesc,
+                              "battery_names": batteryNames
+                        },
+                        success: function(response){
+                              console.log("success.");
+                              console.log(response);
+                        },
+                        error: function(response){
+                              console.log("Something went wrong!");
+                              console.log(response);
+                        }
+                  });
+            }
+
+            async function getVehicleInfo(optionalVehicleID){
+
+                  var queryString = window.location.search;
+                  var urlParams = new URLSearchParams(queryString);
+                  var token = urlParams.get('token');
+
+                  // /api/drone_imagery/get_vehicle?vehicle_id=<vehicle id>
+                  await jQuery.ajax({
+                        //url : 'http://localhost:7080/api/drone_imagery/get_vehicle'+(optionalVehicleID ? '?vehicle_id'+optionalVehicleID : ''),
+                        url : '{{#account.logged_in}}{{{api.getVehicle.url}}}{{/account.logged_in}}'+(optionalVehicleID ? '?vehicle_id'+optionalVehicleID : ''),
+                        data: { 
+                              "sgn_session_id": token,
+                        },
+                        success: function(response){
+                              console.log("success.");
+                              console.log(response);
+                              var vehicles = response["vehicles"];
+                              $('#vehicle-name-select').html('');
+                              $('#vehicle-name-select').append('<option value="new">Create a new Vehicle</option>');
+                              for (var i = 0; i < vehicles.length; i++){
+                                    var valueString = '';
+                                    $('#vehicle-name-select').append('<option value="'+JSON.stringify(vehicles[i]).replace(/["]/g, "&quot;")+'">'+vehicles[i].name+'</option>');
+                              }
+                        },
+                        error: function(response){
+                              console.log("Something went wrong!");
+                              console.log(response);
+                        }
+                  });
+                  vehicleSelectManagement();
+            }
+
+            async function vehicleSelectManagement(){
+                  if($('#vehicle-name-select').val() == "new"){
+                        $('#new-vehicle').show();
+                        $('#vehicle-battery').hide();
+                  }else{
+                        $('#new-vehicle').hide();
+                        $('#vehicle-battery').show();
+                        $('#vehicle-battery-select').html('');
+
+                        var batteries = JSON.parse($('#vehicle-name-select').val())['properties']['batteries'];
+
+                        for(var key in batteries) {
+                              $('#vehicle-battery-select').append('<option value='+key+'>'+key+'</option>');
+                        };
+                  }
+            }
+
+            async function getWeeksAfterPlantingDate(project_id){
+                  var queryString = window.location.search;
+                  var urlParams = new URLSearchParams(queryString);
+                  var token = urlParams.get('token');
+
+                  return await jQuery.ajax({
+                        //url : 'http://localhost:7080/api/drone_imagery/get_weeks_after_planting_date',
+                        url : '{{#account.logged_in}}{{{api.getWeeksAfterPlantingDate.url}}}{{/account.logged_in}}',
+                        data : { 
+                              "sgn_session_id": token,
+                              "drone_run_project_id": project_id
+                        },
+                        success: function(response){
+                              console.log("success.");
+                              console.log(response);
+                        },
+                        error: function(response){
+                              console.log("Something went wrong!");
+                              console.log(response);
+                        }
+                  });
+
+            }
+            
+            async function generateIndicies(){
+                  //TODO: add this
+                  //time_cvterm_id = (await getWeeksAfterPlantingDate(project_id))
+                  //time_ontology_day_cvterm_id
+
+                  //phenotype_types -> OMIT
+                  //standard_process_type can currently only be "minimal" (do not calcualate indicies) or "minimal_vi" (calculate all indicies)
+
+                  await jQuery.ajax({
+                        //url : 'http://localhost:7080/api/drone_imagery/generate_phenotype',
+                        url : '{{#account.logged_in}}{{{api.generatePhenotypes.url}}}{{/account.logged_in}}',
+                        data: { 
+                              "sgn_session_id": token,
+                              "time_cvterm_id":time_cvterm_id,
+                              "standard_process_type":""
+                        },
+                        success: function(response){
+                              console.log("success.");
+                              console.log(response);
+                        },
+                        error: function(response){
+                              console.log("Something went wrong!");
+                              console.log(response);
+                        }
+                  });
+            }
+
+            function addBattery(){
+                  $("#new-batteries-div").append(
+                        '<div class="offset-3 col-9 row">'+
+                        '      <input type="text" name="new-vehicle-battery-name">'+
+                        '      <input type="checkbox" name="new-vehicle-battery-checkbox">'+
+                        '      Use this battery'+
+                        '</div>'
+                  );
+                                                      
+            }
+
+
+
       </script>
+      <style>
+            .one, .two, .three, .four{
+            position:absolute;
+                  margin-top:-10px;
+                  z-index:1;
+                  height:40px;
+                  width:40px;
+                  border-radius:25px;
+                  
+            }
+            .one{
+                  left:20%;
+            }
+            .two{
+                  left:40%;
+            }
+            .three{
+                  left:60%;
+            }
+            .four{
+                  left:80%;
+            }
+            .active-slide{
+                  background-color:#4989bd;
+                  text-align: center;
+                  font-size: x-large;
+                  color: white;
+                  cursor: pointer;
+            }
+            .inactive-slide{
+	            background-color:#999999;
+                  text-align: center;
+                  font-size: x-large;
+                  color: black;
+            }
+      </style>
 </head>
 <body>
       {{>navbar}}
@@ -646,7 +1225,7 @@
 
             <div class="row">
                   <div class="col-10" style="padding:0;">
-                        <img id="image" src="https://placekitten.com/800/600">
+                        <img id="image" src="/images/ILCIFieldImage_Placeholder.jpg">
                   </div>
                   <div class="col-2">
                         <div class="row">Image Settings</div>
@@ -822,7 +1401,7 @@
                               </script>
                               </div>
                         </div>
-
+<!--
                         <div class="form-check">
                               <input class="form-check-input" type="checkbox" value="" id="showFieldLines">
                               <label class="form-check-label" for="showFieldLines">
@@ -834,6 +1413,7 @@
                                     })
                               </script>
                         </div>
+-->
 
                         <div class="row">
                               <div class="form-group col-12">
@@ -933,9 +1513,9 @@
                         </div>
 
                         <div class="form-check">
-                              <input class="form-check-input" type="checkbox" value="" id="showNumbering">
+                              <input class="form-check-input" type="checkbox" value="" id="showNumbering" checked>
                               <label class="form-check-label" for="showNumbering">
-                                Show Numbering
+                                    Show Field Markings
                               </label>
                               <script>
                                     $('#showNumbering').change(function() {
@@ -945,9 +1525,16 @@
                         </div>
                         <div class="row" style="margin-bottom: 16px;">
                               <div class ="col-12">
-                                    <button type="button" class="btn btn-light" style="width: inherit;" data-toggle="modal" data-target="#processModal">
+                                    {{#account.logged_in}}
+                                    <button type="button" class="btn btn-light" style="width: inherit;" data-toggle="modal" onclick="hideAllSlides(); $('#slide-1').show(); $('#processModal').modal('show'); findStudies();">
                                           Process Images Using These Settings
                                     </button>
+                                    {{/account.logged_in}}
+                                    {{^account.logged_in}}
+                                    <button type="button" class="btn btn-light" style="width: inherit;" data-toggle="modal" onclick="$('#loginModal').modal('show');">
+                                          You Must Login Before Continuing
+                                    </button>
+                                    {{/account.logged_in}}
                               </div>
                         </div>
                   </div>
@@ -961,51 +1548,392 @@
                   <h5 class="modal-title" id="processModalLabel">Process Images</h5>
                 </div>
                 <div class="modal-body" id="modal-body">
-                  <div id="image-selection-area">   
-                        <label for="select-image-set">Select Images:</label>
-                        <input type="file" id="select-image-set" name="files" multiple>
-                        <script>
-                              document.getElementById('select-image-set').addEventListener('change', (event) => {
-                              $("#image-staging-area").html('');
-                              var processURLs = event.target.files;
-                              for(var i = 0; i < processURLs.length; i++){
-                                    url = URL.createObjectURL(processURLs[i]);
-                                    var imageInfo = 
-                                    '<div class="row">'+
-                                          '<div class="col-3">'+
-                                                '<img id="uploaded-image-'+i+'" class="uploaded-image" src="'+url+'" style="max-width:100%">'+
-                                          '</div>'+
-                                          '<div class="col-9">'+
-                                                '<div class="form-row">'+
-                                                      '<label class="col-6" for="image-'+i+'-name">Image Name</label>'+
-                                                      '<input type="text" class="form-control col-6" id="image-'+i+'-name">'+
-                                                '</div>'+
-                                          '</div>'+
-                                    '</div>';      
-                                    
-
-                                    $("#image-staging-area").append(imageInfo);
-                              }
-                              });
-                        </script>
+                  <div style="margin: 15px;">
+                        <div class="progress">
+                              <div id="progress-1" class="one active-slide">1</div>
+                              <div id="progress-2" class="two inactive-slide">2</div>
+                              <div id="progress-3" class="three inactive-slide">3</div>
+                              <div id="progress-4" class="four inactive-slide">4</div>
+                              <div id="progress-bar" class="progress-bar" style="width: 20%;"></div>
+                        </div>
                   </div>
-                  <div id="image-staging-area">
 
-                  </div>
-                  <div id="image-parsing-area">
+                  <div id="wizard">  
+                        <div id="slide-1">
+                              <div class="row">
+                                    <div class="col-12" style="text-align: center;">
+                                          <h3>Gathering Study List...</h3>
+                                    </div>   
+                              </div>
+                              <div class="row">
+                                    <div class="col-12" style="text-align: center;">
+                                          <div class="spinner-border text-primary" style="width: 120px; height: 120px;"></div>
+                                    </div>      
+                              </div>
+                        </div>
+                        <div id="slide-2">
+                              <div class="row">
+                                    <div class="col-12" style="text-align: center;">
+                                          <h3>Select a Study to add photos to:</h3>
+                                    </div>   
+                              </div>
+                              <div class="row">
+                                    <div class="col-12" style="text-align: center;">
+                                          <select name="studies" id="studies" class="form-control" onchange="showStudyDetails();">
+                                                <!--<option value="1">Option 1</option>-->
+                                          </select>
+                                    </div>      
+                              </div>
+                              <div class="row">
+                                    <div class="col-12" id="studyDetails" style="text-align: center;">
 
-                  </div>
-                  <div id="image-confirmation-area">
+                                    </div>
+                              </div>
+                              <div class="row">
+                                    <button type="button" id="slice-images" class="btn btn-primary" onclick="changeSlide(3, true);">Continue with this study</button>
+                              </div>
+                              
+                        </div>
+                        <div id="slide-3">
+                              <div id="imaging-details">
+                                    <div class="row">
+                                          <div class="col-12">
+                                                Imaging Details:
+                                          </div>
+                                    </div>
+                                    <div id="name-error-message" class="row" style="display: none;">
+                                          <div class="col-12 alert alert-danger">
+                                                Warning: Imaging Event Name is not unique!
+                                          </div>
+                                    </div>
+                                    <div class="row">
+                                          <div class="col-3">
+                                                Imaging Event Name
+                                          </div>
+                                          <div class="col-9">
+                                                <input type="text" id="drone_run_name">
+                                                <script>
+                                                      var url_string = window.location.href;
+                                                      var url = new URL(url_string);
+                                                      var token = url.searchParams.get("token");
+                                                      $("#drone_run_name").change(function(){
+                                                            jQuery.ajax({
+                                                                  //url : 'http://localhost:7080/api/drone_imagery/upload_drone_imagery_check_drone_name?drone_run_name='+jQuery('#drone_run_name').val(),
+                                                                  url : '{{#account.logged_in}}{{{api.checkDroneRunName.url}}}{{/account.logged_in}}?drone_run_name='+jQuery('#drone_run_name').val(),
+                                                                  data: { 
+                                                                        "sgn_session_id": token
+                                                                  },
+                                                                  success: function(response){
+                                                                        console.log(response);
+                                                                        if (response.success) {
+                                                                              console.log("name is unique");
+                                                                              $("#name-error-message").hide();
+                                                                        }
+                                                                        else if (response.error) {
+                                                                              console.log("name is taken");
+                                                                              $("#name-error-message").show();
+                                                                        }
+                                                                        return false;
+                                                                        },
+                                                                  error: function(response){
+                                                                        alert('Error checking drone run name!');
+                                                                  }
+                                                            });
+                                                      });
+                                                </script>
+                                          </div>
+                                    </div>
+                                    <div class="row">
+                                          <div class="col-3">
+                                                Imaging Event Type
+                                          </div>
+                                          <div class="col-9">
+                                                <input type="text" id="drone_run_type">
+                                          </div>
+                                    </div>
+                                    <div class="row">
+                                          <div class="col-3">
+                                                Imaging Event Date
+                                          </div>
+                                          <div class="col-9">
+                                                <input type="text" id="drone_run_date" placeholder="YYYY/MM/DD HH:mm:SS">
+                                          </div>
+                                    </div>
+                                    <div class="row">
+                                          <div class="col-3">
+                                                Imaging Event Description
+                                          </div>
+                                          <div class="col-9">
+                                                <input type="text" id="drone_run_description">
+                                          </div>
+                                    </div>
+                                    <div class="row">
+                                          <div class="col-3">
+                                                Camera Information
+                                          </div>
+                                          <div class="col-9">
+                                                <input type="text" id="drone_image_upload_camera_info">
+                                          </div>
+                                    </div>
+                                    <div class="row" id="vehicle-name">
+                                          <div class="col-3">
+                                                Vehicle Name
+                                          </div>
+                                          <div class="col-9">
+                                                <select id="vehicle-name-select" onchange="vehicleSelectManagement();">
+                                                      
+                                                </select>
+                                          </div>
+                                    </div>
+                                    <div class="row" id="vehicle-battery">
+                                          <div class="col-3">
+                                                Vehicle Battery
+                                          </div>
+                                          <div class="col-9">
+                                                <select id="vehicle-battery-select">
+                                                      
+                                                </select>
+                                          </div>
+                                    </div>
+                                    <div id="new-vehicle">
+                                          <div class="row">
+                                                <div class="col-3">
+                                                      New Vehicle Name
+                                                </div>
+                                                <div class="col-9">
+                                                      <input type="text" id="new-vehicle-name">
+                                                </div>
+                                          </div>
+                                          <div class="row">
+                                                <div class="col-3">
+                                                      New Vehicle Description
+                                                </div>
+                                                <div class="col-9">
+                                                      <input type="text" id="new-vehicle-desc">
+                                                </div>
+                                          </div>
+                                          <div class="row">
+                                                <div class="col-3">
+                                                      New Vehicle Batteries
+                                                </div>
+                                          </div>
+                                          <div class="row" id="new-batteries-div">
+                                                <div class="offset-3 col-9 row">
+                                                      <input type="text" name="new-vehicle-battery-name">
+                                                      <input type="checkbox" name="new-vehicle-battery-checkbox">
+                                                      Use this battery
+                                                </div>
 
+                                          </div>
+                                          <div class="row">
+                                                <div class="offset-3 col-3">
+                                                      <button type="button" class="btn btn-primary" onclick="addBattery();">Add another battery</button>
+                                                      
+                                                </div>
+                                          </div>
+                                    </div>
+
+                              </div>
+                              <div id="image-selection-area">   
+                                    <label for="select-image-set">Select Images:</label>
+                                    <input type="file" id="select-image-set" name="files" multiple>
+                                    <script>
+                                          document.getElementById('select-image-set').addEventListener('change', (event) => {
+                                          //http://localhost:7080/api/drone_imagery/get_image_types?sgn_session_id=tniegbfurnpesboodqecernapismtjiqobnrxtckxtrxnnbfuyddjjziabwbkgdjzwufzax
+                                          var url_string = window.location.href;
+                                          var url = new URL(url_string);
+                                          var token = url.searchParams.get("token");
+                                          $.ajax({
+                                                //url: 'http://localhost:7080/api/drone_imagery/get_image_types',
+                                                url: "{{#account.logged_in}}{{{api.getImageTypes.url}}}{{/account.logged_in}}",
+                                                //headers: {
+                                                //      Authorization: 'Bearer '+token,
+                                                //},
+                                                data: { 
+                                                      "sgn_session_id": token
+                                                },
+                                                dataType: 'json',
+                                                success: function (data) {
+                                                      var bands = '';
+                                                      for(var j=0; j < data.image_types.length; j++){
+                                                            bands+='<option value="'+data.image_types[j]+'">'+data.image_types[j]+'</option>';
+                                                      }
+                                                      $("#image-staging-area").html('');
+                                                      var processURLs = event.target.files;
+                                                      for(var i = 0; i < processURLs.length; i++){
+                                                            url = URL.createObjectURL(processURLs[i]);
+                                                            //image_types
+                                                            var imageInfo = 
+                                                            '<div class="row">'+
+                                                                  '<div class="col-3">'+
+                                                                        '<img id="uploaded-image-'+i+'" class="uploaded-image" src="'+url+'" style="max-width:100%">'+
+                                                                  '</div>'+
+                                                                  '<div class="col-9">'+
+                                                                        '<div class="form-row">'+
+                                                                              '<label class="col-6">Image Name</label>'+
+                                                                              '<input type="text" class="form-control col-6" id="image-'+i+'-name">'+
+                                                                        '</div>'+
+                                                                        '<div class="form-row">'+
+                                                                              '<label class="col-6">Image Description</label>'+
+                                                                              '<input type="text" class="form-control col-6" id="drone_run_band_description_'+i+'">'+
+                                                                        '</div>'+
+                                                                        '<div class="form-row">'+
+                                                                              '<label class="col-6">Image Band</label>'+
+                                                                              '<select name="drone_run_band_name_'+i+'" id="drone_run_band_name_'+i+'" class="col-6 form-control" onchange="showStudyDetails();">'+
+                                                                                    bands+
+                                                                              '</select>'+
+                                                                        '</div>'+
+                                                                  '</div>'+
+                                                            '</div>';      
+                                                            
+                                                            
+                                                            $("#image-staging-area").append(imageInfo);
+                                                      } 
+                                                },
+                                                error: function (data) {
+                                                      window.alert('Something has gone wrong');
+                                                }
+                                          });
+
+                                          
+                                          });
+                                    </script>
+                              </div>
+                              <div id="image-staging-area">
+
+                              </div>
+                              <div class="row">
+                                    <button type="button" id="slice-images" class="btn btn-primary" onclick="changeSlide(4, true); sliceImageSet($('.uploaded-image'), $('#image-parsing-area'), $('#image-confirmation-area'));">Slice Images</button>
+                              </div>
+                        </div>
+                        <div id="slide-4">
+                              
+                              <div class="row">Save Plot Mapping</div>
+                              <div class="row">
+                                    <input type="button" id="save-configuration" value="Save Configuration" onclick="savePlotAssignments();" />
+                              </div>
+                              <div class="row">Load Plot Mapping</div>
+                              <div class="row">
+                                    <input type="file" id="configuration-selector" style="display: none;">
+                                    <input type="button" value="Load Configuration" onclick="document.getElementById('configuration-selector').click();" />
+                                    <script> 
+                                    document.getElementById('configuration-selector') 
+                                          .addEventListener('change', function() { 
+                              
+                                          var fr=new FileReader(); 
+                                          fr.onload=function(){ 
+                                                var settings = null;
+                                                try{
+                                                      settings = JSON.parse(fr.result); 
+                                                      loadPlotAssignements(settings);
+                                                } catch (err){
+                                                      window.alert("Could not load configuration.")
+                                                }
+                                          } 
+                              
+                                          fr.readAsText(this.files[0]); 
+                                    }); 
+                  
+                                    </script>
+                              </div>
+
+
+                              <div id="image-parsing-area">
+
+                              </div>
+                              <div id="image-confirmation-area">
+
+                              </div> 
+                              <button id="upload-images-button" type="button" class="btn btn-light" onclick="savePlotAssignments();">
+                                    Save Plot Mapping
+                              </button>
+                              <button id="upload-images-button" type="button" class="btn btn-light" onclick="">
+                                    Load Plot Mapping
+                              </button>
+                              <input type="file" id="select-mapping-file" style="display: none;"/>
+                              <script> 
+                                    document.getElementById('select-mapping-file') 
+                                          .addEventListener('change', function() { 
+                              
+                                          var fr=new FileReader(); 
+                                          fr.onload=function(){ 
+                                                var settings = null;
+                                                try{
+                                                      settings = JSON.parse(fr.result); 
+                                                      loadPlotAssignements(settings);
+                                                } catch (err){
+                                                      window.alert("Could not load configuration.")
+                                                }
+                                          } 
+                              
+                                          fr.readAsText(this.files[0]); 
+                                    }); 
+                  
+                                    </script>
+
+                              <button id="upload-images-button" type="button" class="btn btn-light" data-dismiss="modal" onclick="$('#processModal').modal('hide'); $('#uploadModal').modal('show'); sendImageUpload();">
+                                    Upload Images
+                              </button>
+                        </div>  
+                        <div id="slide-error">
+                              Something has gone wrong, sorry!
+                        </div>
                   </div>
                 </div>
                 <div class="modal-footer">
                   <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel Process</button>
-                  <button type="button" class="btn btn-primary" onclick="sliceImageSet($('.uploaded-image'), $('#image-parsing-area'), $('#image-confirmation-area'));">Continue</button>
+                  <!--<button type="button" id="slice-images" class="btn btn-primary" onclick="sliceImageSet($('.uploaded-image'), $('#image-parsing-area'), $('#image-confirmation-area'));">Slice Images</button>-->
+                  <!--<button type="button" id="find-experiment" class="btn btn-primary" onclick="selectStudy();">Select Study</button>-->
                 </div>
               </div>
             </div>
       </div>
+      <div class="modal fade" id="uploadModal" tabindex="-1" role="dialog" aria-labelledby="uploadModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="uploadModalLabel">Uploading Images...</h5>
+                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+                <div class="modal-body">
+                  <div class="row">
+                        <div id="uploadStatus">Beginning Upload.</div>
+                        
+                  </div>
+                  <div class="progress">
+                        <div id="upload-progress-bar" class="progress-bar" style="width: 0%;"></div>
+                  </div>
+                  <div class="row" id="calculate-indicies-div" style="display:none;">
+                        <div class='col-12' style="margin-top:10px;">
+                              <div class="row">
+                                    Calculate Indicies:
+                              </div>
+                              <div class="row">
+                                    <div class="col-6">
+                                          Select Indices
+                                    </div>
+                                    <div class="col-6">
+                                          <select id="specific-indices-selector">
+                                                <option value="value">value</option>
+                                          </select>
+                                    </div>
+                              </div>
+                              <div class="row">
+                                    <button type="button" class="btn btn-primary" onclick="">Calculate Indices</button>
+                              </div>
+                        </div>
+                        
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  
+                </div>
+              </div>
+            </div>
+      </div>
+          
       <div id="slicing-workspace" class="container" style="display: none;">
 
       </div>

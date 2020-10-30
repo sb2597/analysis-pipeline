@@ -19,6 +19,9 @@ async function start(){
     // parse config ==========================================================
     let configRaw = fs.readFileSync('config.json');
     let configJson = JSON.parse(configRaw);
+
+    global.appConfig = JSON.parse(configRaw);
+    
     console.log(configJson);
 
     const databaseModule = require(__dirname+'/db/connector');

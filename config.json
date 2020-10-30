@@ -3,5 +3,91 @@
   "dbdatabase": "postgres",
   "dbuser": "postgres",
   "dbpassword": "postgres",
-  "dbport": "5433"
+  "dbport": "5433",
+  "pageAccess":{
+    "editImage":true
+  },
+  "loginAuthorities":[
+    {
+      "name": "Breedbase", 
+      "loginUrl":"http://localhost:7080/brapi/authorize?display_name=Image%20Analysis%20Pipeline&return_url=<RETURN_URL>?authority=Breedbase",
+      "accountInfoUrl":"http://localhost:7080/authenticate/check/token?cookie=",
+      "confirmUrl":"http://localhost:7080/brapi/v2/search/people",
+      "apiEndpoints":
+        {
+          "searchStudies":{
+            "url":"http://localhost:7080/brapi/v2/search/studies"
+          },
+          "observationUnits":{
+            "url":"http://localhost:7080/brapi/v2/observationunits"
+          },
+          "uploadDroneImagery":{
+            "url":"http://localhost:7080/api/drone_imagery/upload_drone_imagery"
+          },
+          "saveSinglePlotImage":{
+            "url":"http://localhost:7080/api/drone_imagery/save_single_plot_image"
+          },
+          "getImageTypes":{
+            "url":"http://localhost:7080/api/drone_imagery/get_image_types"
+          },
+          "newImagingVehicle":{
+            "url":"http://localhost:7080/api/drone_imagery/new_imaging_vehicle"
+          },
+          "checkDroneRunName":{
+            "url":"http://localhost:7080/api/drone_imagery/upload_drone_imagery_check_drone_name"
+          },
+          "getVehicle":{
+            "url":"http://localhost:7080/api/drone_imagery/get_vehicle"
+          },
+          "getWeeksAfterPlantingDate":{
+            "url":"http://localhost:7080/api/drone_imagery/get_weeks_after_planting_date"
+          },
+          "generatePhenotypes":{
+            "url":"http://localhost:7080/api/drone_imagery/generate_phenotypes"
+          }
+        }
+    },
+    {
+      "name": "Breedbase LIVE", 
+      "loginUrl":"https://imagebreed.org/brapi/authorize?display_name=Image%20Analysis%20Pipeline&return_url=<RETURN_URL>?authority=Breedbase%20LIVE",
+      "accountInfoUrl":"https://imagebreed.org/authenticate/check/token?cookie=",
+      "confirmUrl":"https://imagebreed.org/brapi/v2/search/people",
+      "apiEndpoints":
+        {
+          "searchStudies":{
+            "url":"https://imagebreed.org/brapi/v2/search/studies"
+          },
+          "observationUnits":{
+            "url":"https://imagebreed.org/brapi/v2/observationunits"
+          },
+          "uploadDroneImagery":{
+            "url":"https://imagebreed.org/api/drone_imagery/upload_drone_imagery"
+          },
+          "saveSinglePlotImage":{
+            "url":"https://imagebreed.org/api/drone_imagery/save_single_plot_image"
+          },
+          "getImageTypes":{
+            "url":"https://imagebreed.org/api/drone_imagery/get_image_types"
+          },
+          "newImagingVehicle":{
+            "url":"https://imagebreed.org/api/drone_imagery/new_imaging_vehicle"
+          },
+          "checkDroneRunName":{
+            "url":"https://imagebreed.org/api/drone_imagery/upload_drone_imagery_check_drone_name"
+          },
+          "getVehicle":{
+            "url":"https://imagebreed.org/api/drone_imagery/get_vehicle"
+          },
+          "getWeeksAfterPlantingDate":{
+            "url":"https://imagebreed.org/api/drone_imagery/get_weeks_after_planting_date"
+          },
+          "generatePhenotypes":{
+            "url":"https://imagebreed.org/api/drone_imagery/generate_phenotypes"
+          }
+        }
+    }
+  ]
+  
+
+
 }

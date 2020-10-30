@@ -12,9 +12,11 @@ module.exports = {
 
 			}
 		};
-		await accountService.handleAllAccountServices(req, ret);
 
-		res.render('index', ret);
+		var redirected = await accountService.handleAllAccountServices(req, ret, res);
+		if(!redirected){
+			res.render('index', ret);
+		}
 	});
   }
 }
